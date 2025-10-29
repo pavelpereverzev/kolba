@@ -97,7 +97,7 @@ app = TestWidget()
 # Web Scripts
 
 From version 1.2 scripts can be downloaded from web URLs. Find a green arrow button in Kolba path line and press it.
-In `WebScripts` window enter the direct URL to Pyhton script file. 
+In `WebScripts` window enter the direct URL to Python script file. 
 For example, `https://gisworks.ru/qgis_tools/my_widget.py`
 
 ![Table loook](https://gisworks.ru/qgis_tools/img/kolba_webscript.png)

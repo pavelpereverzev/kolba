@@ -15,14 +15,12 @@ This approach has been well-received by colleagues due to its simplicity and min
 
 # Quickstart
 
-Interface:
-
 The interface of Kolba is simple for understanding: on the top there is a control panel and path to folder with script files. 
 Path line contains buttons on the right side:
-* black trianlge is a dropdown list of saved paths
-* refresh button updates script list by scanning current path 
-* green round with a down arrow - loader of scripts from web
-* folder icon - folder selector
+* ![Table loook](https://gisworks.ru/qgis_tools/img/line_dropdown.png) - dropdown list of saved paths
+* ![Table loook](https://gisworks.ru/qgis_tools/img/line_refresh.png) - updates script list by scanning current path 
+* ![Table loook](https://gisworks.ru/qgis_tools/img/line_webscript.png) - loader of scripts from web
+* ![Table loook](https://gisworks.ru/qgis_tools/img/line_folder_select.png) - folder selector
 
 Below path line there are two sections: the left is script list, the right is a window with description when script is selected.
 In addition to two standard icons (pin/unpin, close widget) there are another two buttons:

@@ -1,16 +1,23 @@
 [![en](https://img.shields.io/badge/lang-ru-red.svg)](https://github.com/pavelpereverzev/kolba/blob/main/README.ru.md) 
 
-## Kolba
+# Kolba
 ![Table loook](https://gisworks.ru/qgis_tools/img/kolba.png)
 
-Kolba is a tool made for running and testing Python script files. User should specify a direct path to directory with Python files. Then window will show a list of Python files while you user is able to edit them in some external code editor. So when user double-click a script in Kolba, the most up-to-date version of selected script will be launched. It also helps in a team work, when you have a shared folder between users, they don't need to constantly update script/plugin, they will have the latest version of tool made by someone.
+A tool made for running and testing Python script files in QGIS. 
 
->[!NOTE]
-> Kolba tool was greeted by colleagues by its simplicity. From some moment I prefer it more than plugins with repository that should be updated manually sometimes. It is more convenient in case of issue fixes: colleagues have a same local network path to scripts and tell that some script works incorrectly. I fix the script and tell that it is ready to go. Another users don't have to have update something (plugin via repository or zip-file), they just re-run script and that's it.
+# Concept
+
+This tool is an alternative to maintaining a local QGIS plugin repository. Previously, I developed plugins for my colleagues and distributed them through a shared repository on our office network. The plugins were used actively, which naturally led to frequent bug reports. The support workflow became burdensome: collecting feedback, fixing issues, repackaging the plugin into a ZIP file, updating the repository, and notifying everyone about the new version. The update notifications, in particular, were inconvenient for users.
+
+To simplify this process, I created Kolba — a wrapper widget for running Python scripts directly in QGIS. It acts as a file browser that displays only Python scripts and allows users to execute them in one click. All scripts are stored in a shared network folder, so if someone reports an issue, I simply fix the script in that folder. Users do not need to update anything — they just run the script again and immediately get the latest version.
+
+This approach has been well-received by colleagues due to its simplicity and minimal maintenance effort.
+
+# Quickstart
+
+User should specify a direct path to directory with Python files in a Kolba's header text line box and hit Enter. Then on the left side of Kolba there will be shown a list of Python files. Users can run them while developers are able to edit them in some external code editor. When user double-click a script in Kolba, the most up-to-date version of selected script will be launched. 
 
 Scripts which are run from Kolba should have all needed libraries imported in order to work. Otherwise Kolba will tell that something is wrong with selected script and an error will be printed in Python console of QGIS. So, despite the fact that some libraries are imported in QGIS from startup, they should be re-imported in local script file. 
-
-### Quickstart
 
 For example there is a script which can be run from Python console:
 
@@ -38,9 +45,17 @@ class TestWidget(QWidget):
 app = TestWidget()
 ```
 >[!NOTE]
-> Here `iface` and `PyQt5` elements are imported in order to make script run from Scripter.
+> Here `iface` and `PyQt5` elements are imported in order to make script run from Kolba.
 
-There is also a way to prevent widgets from opening them as multiple instances. Kolba is adding a new attribute for an `iface` object: `iface.kolba_plugin`. It is basically a dict which is used for keeping instances of running widgets. 
+Copy and paste it to a blank Python script file and name it like `my_widget.py`. In order to update contents of script list in Kolba widget, a blue refresh button should be pressed. Finally, a double click on script will execute it. Same thing can be achieved in by selecting script in a list and pressing a ▶︎ button.
+
+Kolba is actually runs a Python script file the same way like in QGIS Python console editor. But it also passes additional variables with running code. They are:
+* **wrapper** - Kolba instance
+* **project_folder** - current folder in Kolba
+* **script_name** - script filename
+
+This variables can be used in some cases. 
+For example, in a way to prevent widgets from opening them as multiple instances. Kolba is adding a new attribute for an `iface` object: `iface.kolba_plugin`. It is basically a dictionary which is used for keeping instances of running widgets. 
 So if you need to run only single instance of specific widget, add strings:
 
 ```
@@ -49,7 +64,7 @@ iface.kolba_plugin[script_name] = self # - where widget is shown
 iface.kolba_plugin[script_name] = None # - where widget is closing, i.e. closeEvent function
 ```
 
-Edited example:
+Completed example:
 ```
 from qgis.utils import iface
 from PyQt5.QtWidgets import QWidget, QPushButton, QVBoxLayout
@@ -79,20 +94,18 @@ class TestWidget(QWidget):
 app = TestWidget()
 ```
 
-This code snippet can be saved as a Python script file (for example, `my_widget.py`) and put in a folder selected as a script path in Scripter. In order to update contents of script list in Kolba widget, a blue refresh button should be pressed. Finally a double click on script will execute it. Same thing can be achieved in by selecting script in a list and pressing a ▶︎ button.
+# Web Scripts
 
-### Web Scripts
-
-From version 1.2 scripts can be downloaded from web urls. Find a green arrow button in Kolba path line and press it.
-In WebScripts window enter the direct URL to Pyhton script file. 
+From version 1.2 scripts can be downloaded from web URLs. Find a green arrow button in Kolba path line and press it.
+In `WebScripts` window enter the direct URL to Pyhton script file. 
 For example, `https://gisworks.ru/qgis_tools/my_widget.py`
 
 ![Table loook](https://gisworks.ru/qgis_tools/img/kolba_webscript.png)
 
-After that, press search button. Some time later there will be answer wether script found or not. If found, is there description of it.
+After that, press search button. Some time later there will be answer whether script found or not. If found, is there description of it.
 If URL is valid script can be saved with a button `Save`. After that script will be appeared in a list of Kolba.
 
-### Descriptions
+# Descriptions
 
 The right part of Kolba window is used to show a description of selected plugins. 
 From version 1.2 all description data stores in script file at the beginning.
@@ -141,6 +154,8 @@ class TestWidget(QWidget):
         iface.kolba_plugin[script_name] = None # widget is reset in Kolba dict, so it is ready for re-run
 ```
 
+You can also upload script to some hosting and let other users to users to download it directly from Kolba.
+Script file will not run right after download is completed so you will have a time to check what script actually does.
 
 
 Video guide provided below:

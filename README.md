@@ -15,6 +15,24 @@ This approach has been well-received by colleagues due to its simplicity and min
 
 # Quickstart
 
+Interface:
+
+The interface of Kolba is simple for understanding: on the top there is a control panel and path to folder with script files. 
+Path line contains buttons on the right side:
+* black trianlge is a dropdown list of saved paths
+* refresh button updates script list by scanning current path 
+* green round with a down arrow - loader of scripts from web
+* folder icon - folder selector
+
+Below path line there are two sections: the left is script list, the right is a window with description when script is selected.
+In addition to two standard icons (pin/unpin, close widget) there are another two buttons:
+
+* ![Table loook](https://gisworks.ru/qgis_tools/img/icon_folder_on.png) - turn on/off path line
+* ![Table loook](https://gisworks.ru/qgis_tools/img/path_list.png) - open Kolba settings
+
+Kolba settings contains detailed settings of paths which user can manage: add new folders, delete another, change order of them. 
+Also a theme can be set by using a background image for Kolba widget. User should check a `Theme` checkbox and then select an image which can be jpg/png/gif format. Transparency is also can be set.
+
 User should specify a direct path to directory with Python files in a Kolba's header text line box and hit Enter. Then on the left side of Kolba there will be shown a list of Python files. Users can run them while developers are able to edit them in some external code editor. When user double-click a script in Kolba, the most up-to-date version of selected script will be launched. 
 
 Scripts which are run from Kolba should have all needed libraries imported in order to work. Otherwise Kolba will tell that something is wrong with selected script and an error will be printed in Python console of QGIS. So, despite the fact that some libraries are imported in QGIS from startup, they should be re-imported in local script file. 

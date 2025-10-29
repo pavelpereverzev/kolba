@@ -1276,6 +1276,10 @@ class WebScript(QMainWindow):
         self.search_btn.setMinimumHeight(h_line)
         super().showEvent(event) 
 
+    def closeEvent(self, event):
+        if self.worker_script:
+            self.worker_script.deleteLater()
+
 
     def save_script(self):
         file_path = os.path.join(self.main_tool.wpath, self.tool_name)
@@ -1329,6 +1333,8 @@ class WebScript(QMainWindow):
 
 
     def find_script(self):
+        if self.worker_script:
+            self.worker_script.deleteLater()
         url = self.line_url.text().strip()
         if not url:
             self.warning_message("Script name/URL is empty")
@@ -1346,15 +1352,13 @@ class WebScript(QMainWindow):
             self.tool_name = last_item_py
             url = '{}/{}'.format(url.rsplit('/', maxsplit=1)[0], self.tool_name)
 
-        print(url)
-
         self.worker_script = WebScriptCheck(url)
         self.worker_script.data_loaded.connect(self.on_data_loaded)
         self.worker_script.start()
         return
     
     def on_data_loaded(self, script_bundle):
-        self.worker_script.deleteLater()
+        
         self.tool_content = script_bundle['script_content']
         self.mdata = script_bundle['script_metadata']
         
@@ -1601,7 +1605,6 @@ class KolbaWidget(QWidget):
 
         self.right_side_widget = QWidget()
         
-
         self.rs_vbox = QVBoxLayout()
         self.rs_vbox.setContentsMargins(0,0,0,0)
         self.rs_vbox.addWidget(self.description_area)

@@ -1,7 +1,7 @@
 [![en](https://img.shields.io/badge/lang-en-red.svg)](https://github.com/pavelpereverzev/kolba/blob/main/README.ru.md) 
 
 # Колба
-![Table loook](https://gisworks.ru/qgis_tools/img/kolba.png)
+![Table loook](https://gisworks.ru/qgis_tools/img/kolba_1_3.png)
 
 Инструмент для запуска и тестирования Python-скриптов в QGIS.
 

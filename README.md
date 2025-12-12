@@ -1,7 +1,7 @@
 [![en](https://img.shields.io/badge/lang-ru-red.svg)](https://github.com/pavelpereverzev/kolba/blob/main/README.ru.md) 
 
 # Kolba
-![Table loook](https://gisworks.ru/qgis_tools/img/kolba.png)
+![Table loook](https://gisworks.ru/qgis_tools/img/kolba_1_3.png)
 
 A tool made for running and testing Python script files in QGIS. 
 
@@ -179,5 +179,5 @@ Script file will not run right after download is completed so you will have a ti
 
 Video guide provided below:
 
-https://github.com/Kylsha/easyPlugin/assets/25682040/67390440-8ca9-4c46-9284-0677c74a3be9
+https://github.com/pavelpereverzev/easyPlugin/assets/25682040/67390440-8ca9-4c46-9284-0677c74a3be9
 

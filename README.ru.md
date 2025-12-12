@@ -181,5 +181,5 @@ class TestWidget(QWidget):
 
 Видео с демострацнией работы в Колбе (устаревшее, но отражает суть использования):
 
-https://github.com/Kylsha/easyPlugin/assets/25682040/67390440-8ca9-4c46-9284-0677c74a3be9
+https://github.com/pavelpereverzev/easyPlugin/assets/25682040/67390440-8ca9-4c46-9284-0677c74a3be9
 

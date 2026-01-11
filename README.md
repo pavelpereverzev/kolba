@@ -5,21 +5,21 @@
 
 A tool made for running and testing Python script files in QGIS. 
 
-# Concept
+## Concept
 
 This tool is an alternative to maintaining a local QGIS plugin repository. Previously, I developed plugins for my colleagues and distributed them through a shared repository on our office network. The plugins were used actively, which naturally led to frequent bug reports. The support workflow became burdensome: collecting feedback, fixing issues, repackaging the plugin into a ZIP file, updating the repository, and notifying everyone about the new version. The update notifications, in particular, were inconvenient for users.
 
-To simplify this process, I created Kolba — a wrapper widget for running Python scripts directly in QGIS. It acts as a file browser that displays only Python scripts and allows users to execute them in one click. All scripts are stored in a shared network folder, so if someone reports an issue, I simply fix the script in that folder. Users do not need to update anything — they just run the script again and immediately get the latest version.
+To simplify this process, I created Kolba — a wrapper widget for running Python scripts directly in QGIS. It acts like a file browser that displays only Python scripts and allows users to execute them by doubleclick. All scripts are stored in a shared network folder, so if someone reports an issue, I simply fix the script in that folder. Users do not need to update anything — they just run specific script again and immediately get the latest version.
 
 This approach has been well-received by colleagues due to its simplicity and minimal maintenance effort.
 
-# Quickstart
+## Interface
 
 The interface of Kolba is simple for understanding: on the top there is a control panel and path to folder with script files. 
 Path line contains buttons on the right side:
 * ![Table loook](https://gisworks.ru/qgis_tools/img/line_dropdown.png) - dropdown list of saved paths
 * ![Table loook](https://gisworks.ru/qgis_tools/img/line_refresh.png) - updates script list by scanning current path 
-* ![Table loook](https://gisworks.ru/qgis_tools/img/line_webscript.png) - loader of scripts from web
+* ![Table loook](https://gisworks.ru/qgis_tools/img/line_webscript.png) - loader of scripts from the internet
 * ![Table loook](https://gisworks.ru/qgis_tools/img/line_folder_select.png) - folder selector
 
 Below path line there are two sections: the left is script list, the right is a window with description when script is selected.
@@ -28,13 +28,7 @@ In addition to two standard icons (pin/unpin, close widget) there are another tw
 * ![Table loook](https://gisworks.ru/qgis_tools/img/icon_folder_on.png) - turn on/off path line
 * ![Table loook](https://gisworks.ru/qgis_tools/img/path_list.png) - open Kolba settings
 
-Kolba settings contains detailed settings of paths which user can manage: add new folders, delete another, change order of them, set WebScript root folder. 
-
-![Table loook](https://gisworks.ru/qgis_tools/img/kolba_settings.png)
-
-Also a theme can be set by using a background image for Kolba widget. User should check a `Theme` checkbox and then select an image which can be jpg/png/gif format. Transparency is also can be set.
-
-Since version 1.4 there is a **WebScript default location**. This setting is a URL to the root folder of scripts that can be downloaded from the internet. Default URL is _https://gisworks.ru/qgis_tools_ which means that if user type _my_widget_ in WebScript search tool, it will go to _https://gisworks.ru/qgis_tools/my_widget.py_ path.
+# Quickstart
 
 User should specify a direct path to directory with Python files in a Kolba's header text line box and hit Enter. Then on the left side of Kolba there will be shown a list of Python files. Users can run them while developers are able to edit them in some external code editor. When user double-click a script in Kolba, the most up-to-date version of selected script will be launched. 
 
@@ -44,7 +38,7 @@ For example there is a script which can be run from Python console:
 
 ```
 from qgis.utils import iface
-from PyQt5.QtWidgets import QWidget, QPushButton, QVBoxLayout
+from qgis.PyQt.QtWidgets import QWidget, QPushButton, QVBoxLayout
 
 class TestWidget(QWidget):
     def __init__(self):
@@ -66,9 +60,9 @@ class TestWidget(QWidget):
 app = TestWidget()
 ```
 >[!NOTE]
-> Here `iface` and `PyQt5` elements are imported in order to make script run from Kolba.
+> Here `iface` and `PyQt` elements are imported in order to make script run from Kolba.
 
-Copy and paste it to a blank Python script file and name it like `my_widget.py`. In order to update contents of script list in Kolba widget, a blue refresh button should be pressed. Finally, a double click on script will execute it. Same thing can be achieved in by selecting script in a list and pressing a ▶︎ button.
+Copy and paste the code above to a blank Python script file and name it like `my_widget.py`. In order to update contents of script list in Kolba widget, a blue refresh button should be pressed. Finally, a doubleclick on script will execute it. Same thing can be achieved in by selecting script in a list and pressing a ▶︎ button.
 
 Kolba is actually runs a Python script file the same way like in QGIS Python console editor. But it also passes additional variables with running code. They are:
 * **wrapper** - Kolba instance
@@ -89,7 +83,7 @@ These strings make it safe to run scripts within Kolba or outside of it.
 Completed example:
 ```
 from qgis.utils import iface
-from PyQt5.QtWidgets import QWidget, QPushButton, QVBoxLayout
+from qgis.PyQt.QtWidgets import QWidget, QPushButton, QVBoxLayout
 
 class TestWidget(QWidget):
     def __init__(self):
@@ -116,21 +110,26 @@ class TestWidget(QWidget):
 app = TestWidget()
 ```
 
-# Web Scripts
+Video guide provided below:
 
-Since version 1.2 scripts can be downloaded from web URLs. Find a green arrow button in Kolba path line and press it.
+https://github.com/pavelpereverzev/easyPlugin/assets/25682040/67390440-8ca9-4c46-9284-0677c74a3be9
+
+
+## Web Scripts
+
+Since version 1.2 scripts can be downloaded from web URLs. Find a ![Table loook](https://gisworks.ru/qgis_tools/img/line_webscript.png) button in Kolba path line and press it.
 In `WebScripts` window enter the direct URL to Python script file. 
 For example, `https://gisworks.ru/qgis_tools/my_widget.py`
 
 ![Table loook](https://gisworks.ru/qgis_tools/img/kolba_webscript.png)
 
-After that, press search button. Some time later there will be answer whether script found or not. If found, is there description of it.
+After that, press search button. Some time later there will be clear if script is found or not.
 If URL is valid script can be saved with a button `Save`. After that script will be appeared in a list of Kolba.
 
-# Descriptions
+## Descriptions
 
-The right part of Kolba window is used to show a description of selected plugins. 
-From version 1.2 all description data stores in script file at the beginning.
+The right part of Kolba window is used to show a description of selected script. 
+Since version 1.2 all description data stores in script file at the beginning.
 Description contain rows like:
 * **description** - description itself, since version 1.4 supports HTML syntax
 * **version** - number of version (needed for updates check)
@@ -138,6 +137,8 @@ Description contain rows like:
 * **author** - developer name
 * **author_mail** - e-mail of author
 * **original_url** - URL where script stores
+
+
 
 Check an example:
 ```
@@ -151,7 +152,7 @@ original_url: https://gisworks.ru/qgis_tools/my_widget.py
 """
 
 from qgis.utils import iface
-from PyQt5.QtWidgets import QWidget, QPushButton, QVBoxLayout
+from qgis.PyQt.QtWidgets import QWidget, QPushButton, QVBoxLayout
 
 class TestWidget(QWidget):
     def __init__(self):
@@ -176,11 +177,22 @@ class TestWidget(QWidget):
         (script_name:=globals().get("script_name")) and hasattr(iface,"kolba_plugin") and iface.kolba_plugin.__setitem__(script_name, None) # widget is reset in Kolba dict, so it is ready for re-run
 ```
 
-You can also upload script to some hosting and let other users to users to download it directly from Kolba.
+You can also upload script to some hosting and let other users to download it directly from Kolba.
 Script file will not run right after download is completed so you will have a time to check what script actually does.
 
+>[!NOTE]
+> None of these lines are required, but **description** makes it better for colleagues to understand a tool someone made.
+> **version** and **original_url** should be both set carefully if developer decides to make updates on his tool. For example after changing number at **version** from `1.0` to `1.1` in script located in `https://gisworks.ru/qgis_tools/my_widget.py` user will see and `Update tool` button at the bottom of Kolba description window.
 
-Video guide provided below:
+## Settings
 
-https://github.com/pavelpereverzev/easyPlugin/assets/25682040/67390440-8ca9-4c46-9284-0677c74a3be9
+Kolba settings contains detailed settings of paths which user can manage: add new folders, delete another, change order of them, set WebScript root folder. 
+
+![Table loook](https://gisworks.ru/qgis_tools/img/kolba_settings.png)
+
+Also a theme can be set by using a background image for Kolba widget. User should check a `Theme` checkbox and then select an image which can be jpg/png/gif format. Transparency is also can be set.
+
+Since version 1.4 there is a **WebScript default location**. This setting is a URL to the root folder of scripts that can be downloaded from the internet. Default URL is `https://gisworks.ru/qgis_tools` which means that if user type `my_widget` in WebScript search tool, it will go to `https://gisworks.ru/qgis_tools/my_widget.py` path.
+
+
 

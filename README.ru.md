@@ -1,20 +1,20 @@
-[![en](https://img.shields.io/badge/lang-en-red.svg)](https://github.com/pavelpereverzev/kolba/blob/main/README.ru.md) 
+[![en](https://img.shields.io/badge/lang-en-red.svg)](https://github.com/pavelpereverzev/kolba/blob/main/README.md) 
 
 # Колба
-![Table loook](https://gisworks.ru/qgis_tools/img/kolba_1_3.png)
+![Table loook](https://gisworks.ru/qgis_tools/img/kolba_1_4.png)
 
 Инструмент для запуска и тестирования Python-скриптов в QGIS.
 
-# Концепция
+## Концепция
 
 Колба представляет собой альтернативу использованию репозитория QGIS-плагинов, в том числе локального, развернутого внутри корпоративной сети.
 Ранее я разрабатывал плагины для коллег и распространял их через репозиторий в локальной сети офиса. Плагины активно использовались, и по мере работы в них находили ошибки. Процесс поддержки плагинов со временем становился неудобным. После сбора обратной связи нужно было исправлять накопленные ошибки, пересобрать плагин, обновить xml-файл в репозитории, разослать коллегам письмо об обновлении. Последнее было особенно мучительно для всех, подобные рассылки часто терялись в потоке писем и коллегам наверняка было неудобно каждый раз вручную обновлять плагины.
 
 Чтобы упростить этот процесс, я создал Колбу — виджет-обёртку для запуска Python-скриптов напрямую из QGIS. По сути, он работает как файловый браузер, показывая только Python-файлы и позволяя запускать их. Все скрипты я складывал в общую сетевую папку, к которой имели доступ коллеги. Они также указали путь к этой папке в Колбе и видели набор скриптов, с которыми могли работать. Как только в скрипте возникала ошибка, мне об этом сообщали, я делал исправления и все: другим коллегам не нужно было ничего обновлять — они просто запускают скрипт заново и сразу получают его актуальную версию. В дальнейшем это сильно упрощало процесс разработки, учитывая то, что у коллег могут быть разные версии QGIS и другие особенности в системе: можно было гибко подогнать скрипты под каждого.
 
-Стоит сказать, что коллеги тепло приняли такой подход :).
+Стоит отметить, что коллеги тепло приняли такой подход :).
 
-# Начало работы
+## Интерфейс 
 
 Интерфейс Колбы довольно простой: в верхней части находится панель управления и строка пути к папке со скриптами.
 
@@ -30,15 +30,10 @@
 * ![Table loook](https://gisworks.ru/qgis_tools/img/icon_folder_on.png) - показать/скрыть строку пути
 * ![Table loook](https://gisworks.ru/qgis_tools/img/path_list.png) - открыть настройки Колба
 
-В настройках можно управлять списком путей: добавлять, удалять, менять порядок. 
 
-![Table loook](https://gisworks.ru/qgis_tools/img/kolba_settings.png)
+# Начало работы
 
-Также можно установить `тему` — фоновое изображение (jpg/png/gif), с регулируемой прозрачностью.
-
-## Запуск скриптов
-
-Укажите путь к каталогу с .py-файлами в заголовке и нажмите Enter.
+Укажите путь к папке с .py-файлами в строке ввода пути и нажмите Enter.
 Слева появится список скриптов. Двойной клик запустит скрипт. Также можно выбрать скрипт и нажать ▶︎ для запуска. 
 Для разработчиков удобство заключается в том, что они могут редактировать файл скрипта в стороннем редакторе, сохранять изменения и после - сразу запускать скрипт из Колбы. Быстро и удобно для всех: и разработчиков, и пользователей.
 
@@ -49,7 +44,7 @@
 
 ```
 from qgis.utils import iface
-from PyQt5.QtWidgets import QWidget, QPushButton, QVBoxLayout
+from qgis.PyQt.QtWidgets import QWidget, QPushButton, QVBoxLayout
 
 class TestWidget(QWidget):
     def __init__(self):
@@ -85,15 +80,15 @@ app = TestWidget()
 Например, чтобы предотвратить повторное открытие виджетов, Колба добавляет атрибут к `iface`, а именно `iface.kolba_plugin`. Это словарь, который используется для сбора информации об открытых виджетах.
 Если требуется предотвратить повторное открытие виджета, добавьте строки:
 ```
-iface.kolba_plugin[script_name] = self # - в том месте, где виджет запущен и показан
+(script_name:=globals().get("script_name")) and hasattr(iface,"kolba_plugin") and iface.kolba_plugin.__setitem__(script_name, self) # - в том месте, где виджет запущен и показан
 ...
-iface.kolba_plugin[script_name] = None # - в том месте, где виджет закрывается, например, в функции closeEvent 
+(script_name:=globals().get("script_name")) and hasattr(iface,"kolba_plugin") and iface.kolba_plugin.__setitem__(script_name, None) # - в том месте, где виджет закрывается, например, в функции closeEvent 
 ```
 
 Готовый пример:
 ```
 from qgis.utils import iface
-from PyQt5.QtWidgets import QWidget, QPushButton, QVBoxLayout
+from qgis.PyQt.QtWidgets import QWidget, QPushButton, QVBoxLayout
 
 class TestWidget(QWidget):
     def __init__(self):
@@ -105,7 +100,7 @@ class TestWidget(QWidget):
         layout.addWidget(button)
         button.clicked.connect(self.get_current_layer)
         self.show()
-        iface.kolba_plugin[script_name] = self # виджет запиывается в словарь iface.kolba_plugin, поэтому не будет повторно открываться 
+        (script_name:=globals().get("script_name")) and hasattr(iface,"kolba_plugin") and iface.kolba_plugin.__setitem__(script_name, self) # виджет запиывается в словарь iface.kolba_plugin, поэтому не будет повторно открываться 
 
     def get_current_layer(self):
         active_layer = iface.activeLayer()
@@ -115,24 +110,28 @@ class TestWidget(QWidget):
             print('no layers in project')
 
     def closeEvent(self, event):
-        iface.kolba_plugin[script_name] = None # виджет обнулен в словаре iface.kolba_plugin, и готов к повторному открытию
+        (script_name:=globals().get("script_name")) and hasattr(iface,"kolba_plugin") and iface.kolba_plugin.__setitem__(script_name, None) # виджет обнулен в словаре iface.kolba_plugin, и готов к повторному открытию
 
 app = TestWidget()
 ```
 
-# Web Scripts
+Видео с демострацнией работы в Колбе (устаревшее, но отражает суть использования):
 
-Начиная с версии 1.2 можно загружать скрипты по прямым ссылкам. Нажмите кнопку ![Table loook](https://gisworks.ru/qgis_tools/img/line_webscript.png) и в окне `WebScripts` введите ссылку, например, `https://gisworks.ru/qgis_tools/my_widget.py`, нажмите Enter.
+https://github.com/pavelpereverzev/easyPlugin/assets/25682040/67390440-8ca9-4c46-9284-0677c74a3be9
+
+## Web Scripts
+
+Начиная с версии 1.2 в Колбе можно загружать скрипты по прямым ссылкам из интернета. Нажмите кнопку ![Table loook](https://gisworks.ru/qgis_tools/img/line_webscript.png) и в окне `WebScripts` введите ссылку, например, `https://gisworks.ru/qgis_tools/my_widget.py`, нажмите Enter.
 
 ![Table loook](https://gisworks.ru/qgis_tools/img/kolba_webscript.png)
 
-Будет выполнен запрос по указанной ссылке и, если ссылка валидная, в окне `WebScripts` появится описание скрипта, а также станет активной кнопка `Save`. При нажатии этой кнопки скрипт сохранится в указанной папке и он же появится в списке скриптов в Колбе.
+Будет выполнен запрос по указанной ссылке и, если ссылка корректная, в окне `WebScripts` появится описание скрипта, а также станет активной кнопка `Save`. При нажатии этой кнопки скрипт сохранится в указанной папке и он же появится в списке скриптов в Колбе.
 
-# Описания
+## Описания
 
 В правой части Колбы показывается описание скриптов. Описание скрипта хранится в его начале в виде многострочного комментария:
-* **description** - само описание
-* **version** - номер версии
+* **description** - само описание, начиная с версии 1.4, поддерживает HTML-верстку
+* **version** - номер версии (необходимо для обновления скриптов)
 * **reference** - ссылка с информацией по скрипту
 * **author** - имя разработчика
 * **author_mail** - e-mail или иной способ связи
@@ -150,7 +149,7 @@ original_url: https://gisworks.ru/qgis_tools/my_widget.py
 """
 
 from qgis.utils import iface
-from PyQt5.QtWidgets import QWidget, QPushButton, QVBoxLayout
+from qgis.PyQt.QtWidgets import QWidget, QPushButton, QVBoxLayout
 
 class TestWidget(QWidget):
     def __init__(self):
@@ -162,7 +161,7 @@ class TestWidget(QWidget):
         layout.addWidget(button)
         button.clicked.connect(self.get_current_layer)
         self.show()
-        iface.kolba_plugin[script_name] = self # виджет запиывается в словарь iface.kolba_plugin, поэтому не будет повторно открываться 
+        (script_name:=globals().get("script_name")) and hasattr(iface,"kolba_plugin") and iface.kolba_plugin.__setitem__(script_name, self) = self # виджет запиывается в словарь iface.kolba_plugin, поэтому не будет повторно открываться 
 
     def get_current_layer(self):
         active_layer = iface.activeLayer()
@@ -172,14 +171,21 @@ class TestWidget(QWidget):
             print('no layers in project')
 
     def closeEvent(self, event):
-        iface.kolba_plugin[script_name] = None # виджет обнулен в словаре iface.kolba_plugin, и готов к повторному открытию
+        (script_name:=globals().get("script_name")) and hasattr(iface,"kolba_plugin") and iface.kolba_plugin.__setitem__(script_name, None) # виджет обнулен в словаре iface.kolba_plugin, и готов к повторному открытию
 ```
 Любой скрипт можно загрузить на веб-хостинг и предоставить возможность другим пользователям его скачать, а позже - запустить через Колбу.
 Скрипт не будет запускаться сразу после загрузки, у пользователя будет возможность ознакомиться с кодом.
 
+>[!NOTE]
+> Ни одна из строк описания не является обязательной, но **description** помогает коллегам лучше понять инструмент, созданный кем-то другим.
+> **version** и **original_url** следует указывать аккуратно, если разработчик решит обновить свой инструмент. Например, после изменения числа в **version** с `1.0` на `1.1` в скрипте, расположенном по адресу `https://gisworks.ru/qgis_tools/my_widget.py`, пользователь увидит кнопку `Update tool` внизу окна описания в Колбе.
 
+## Настройки
 
-Видео с демострацнией работы в Колбе (устаревшее, но отражает суть использования):
+В настройках можно управлять списком путей: добавлять, удалять, менять порядок. 
 
-https://github.com/pavelpereverzev/easyPlugin/assets/25682040/67390440-8ca9-4c46-9284-0677c74a3be9
+![Table loook](https://gisworks.ru/qgis_tools/img/kolba_settings.png)
 
+Также можно установить `тему` — фоновое изображение (jpg/png/gif), с регулируемой прозрачностью.
+
+Начиная с версии 1.4, в настройках появился пункт  **WebScript default location**. Эта настройка представляет собой URL-адрес корневой папки скриптов, которые можно загрузить из интернета. URL-адрес по умолчанию — `https://gisworks.ru/qgis_tools`, что означает, что если пользователь введет `my_widget` в поиск WebScript, последний перейдет по пути `https://gisworks.ru/qgis_tools/my_widget.py`.

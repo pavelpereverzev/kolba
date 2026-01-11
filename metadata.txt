@@ -5,8 +5,9 @@
 [general]
 name=Kolba
 qgisMinimumVersion=3.0
+qgisMaximumVersion=4.99
 description=Plugin for quick script launch
-version=1.2
+version=1.4
 author=Pavel Pereverzev
 email=pasha004@yandex.ru
 
@@ -23,7 +24,7 @@ hasProcessingProvider=no
 # changelog=
 
 # Tags are comma separated with spaces allowed
-tags=python
+tags=python, development, scripts
 
 homepage=https://github.com/pavelpereverzev/kolba
 category=Plugins
@@ -44,4 +45,6 @@ Category of the plugin: Raster, Vector, Database or Web
 
 # If the plugin can run on QGIS Server.
 server=False
+
+supportsQt6=True
 

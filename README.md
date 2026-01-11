@@ -1,7 +1,7 @@
 [![en](https://img.shields.io/badge/lang-ru-red.svg)](https://github.com/pavelpereverzev/kolba/blob/main/README.ru.md) 
 
 # Kolba
-![Table loook](https://gisworks.ru/qgis_tools/img/kolba_1_3.png)
+![Table loook](https://gisworks.ru/qgis_tools/img/kolba_1_4.png)
 
 A tool made for running and testing Python script files in QGIS. 
 
@@ -28,11 +28,13 @@ In addition to two standard icons (pin/unpin, close widget) there are another tw
 * ![Table loook](https://gisworks.ru/qgis_tools/img/icon_folder_on.png) - turn on/off path line
 * ![Table loook](https://gisworks.ru/qgis_tools/img/path_list.png) - open Kolba settings
 
-Kolba settings contains detailed settings of paths which user can manage: add new folders, delete another, change order of them. 
+Kolba settings contains detailed settings of paths which user can manage: add new folders, delete another, change order of them, set WebScript root folder. 
 
 ![Table loook](https://gisworks.ru/qgis_tools/img/kolba_settings.png)
 
 Also a theme can be set by using a background image for Kolba widget. User should check a `Theme` checkbox and then select an image which can be jpg/png/gif format. Transparency is also can be set.
+
+Since version 1.4 there is a **WebScript default location**. This setting is a URL to the root folder of scripts that can be downloaded from the internet. Default URL is _https://gisworks.ru/qgis_tools_ which means that if user type _my_widget_ in WebScript search tool, it will go to _https://gisworks.ru/qgis_tools/my_widget.py_ path.
 
 User should specify a direct path to directory with Python files in a Kolba's header text line box and hit Enter. Then on the left side of Kolba there will be shown a list of Python files. Users can run them while developers are able to edit them in some external code editor. When user double-click a script in Kolba, the most up-to-date version of selected script will be launched. 
 
@@ -78,10 +80,11 @@ For example, in a way to prevent widgets from opening them as multiple instances
 So if you need to run only single instance of specific widget, add strings:
 
 ```
-iface.kolba_plugin[script_name] = self # - where widget is shown
+(script_name:=globals().get("script_name")) and hasattr(iface,"kolba_plugin") and iface.kolba_plugin.__setitem__(script_name, self) # - where widget is shown
 ...
-iface.kolba_plugin[script_name] = None # - where widget is closing, i.e. closeEvent function
+(script_name:=globals().get("script_name")) and hasattr(iface,"kolba_plugin") and iface.kolba_plugin.__setitem__(script_name, None) # - where widget is closing, i.e. closeEvent function
 ```
+These strings make it safe to run scripts within Kolba or outside of it.
 
 Completed example:
 ```
@@ -98,7 +101,7 @@ class TestWidget(QWidget):
         layout.addWidget(button)
         button.clicked.connect(self.get_current_layer)
         self.show()
-        iface.kolba_plugin[script_name] = self # widget is stored in Kolba dict, so it won't open more than one time
+        (script_name:=globals().get("script_name")) and hasattr(iface,"kolba_plugin") and iface.kolba_plugin.__setitem__(script_name, self) # widget is stored in Kolba dict, so it won't open more than one time
 
     def get_current_layer(self):
         active_layer = iface.activeLayer()
@@ -108,14 +111,14 @@ class TestWidget(QWidget):
             print('no layers in project')
 
     def closeEvent(self, event):
-        iface.kolba_plugin[script_name] = None # widget is reset in Kolba dict, so it is ready for re-run
+        (script_name:=globals().get("script_name")) and hasattr(iface,"kolba_plugin") and iface.kolba_plugin.__setitem__(script_name, None) # widget is reset in Kolba dict, so it is ready for re-run
 
 app = TestWidget()
 ```
 
 # Web Scripts
 
-From version 1.2 scripts can be downloaded from web URLs. Find a green arrow button in Kolba path line and press it.
+Since version 1.2 scripts can be downloaded from web URLs. Find a green arrow button in Kolba path line and press it.
 In `WebScripts` window enter the direct URL to Python script file. 
 For example, `https://gisworks.ru/qgis_tools/my_widget.py`
 
@@ -129,7 +132,7 @@ If URL is valid script can be saved with a button `Save`. After that script will
 The right part of Kolba window is used to show a description of selected plugins. 
 From version 1.2 all description data stores in script file at the beginning.
 Description contain rows like:
-* **description** - description itself
+* **description** - description itself, since version 1.4 supports HTML syntax
 * **version** - number of version (needed for updates check)
 * **reference** - URL containing information or guide to plugin
 * **author** - developer name
@@ -160,7 +163,7 @@ class TestWidget(QWidget):
         layout.addWidget(button)
         button.clicked.connect(self.get_current_layer)
         self.show()
-        iface.kolba_plugin[script_name] = self # widget is stored in Kolba dict, so it won't open more than one time
+        (script_name:=globals().get("script_name")) and hasattr(iface,"kolba_plugin") and iface.kolba_plugin.__setitem__(script_name, self) = self # widget is stored in Kolba dict, so it won't open more than one time
 
     def get_current_layer(self):
         active_layer = iface.activeLayer()
@@ -170,7 +173,7 @@ class TestWidget(QWidget):
             print('no layers in project')
 
     def closeEvent(self, event):
-        iface.kolba_plugin[script_name] = None # widget is reset in Kolba dict, so it is ready for re-run
+        (script_name:=globals().get("script_name")) and hasattr(iface,"kolba_plugin") and iface.kolba_plugin.__setitem__(script_name, None) # widget is reset in Kolba dict, so it is ready for re-run
 ```
 
 You can also upload script to some hosting and let other users to users to download it directly from Kolba.

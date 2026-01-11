@@ -22,70 +22,84 @@
  *                                                                             *
  ******************************************************************************/
 """
-import os 
+import os
 import string
 import json
 from shutil import copyfile
-import requests 
+import requests
+from urllib.parse import urlparse
 import re
+from pathlib import Path
+import tempfile
 
-from qgis._gui import *  
-from qgis._core import * 
-from qgis.utils import iface 
+from qgis._gui import *
+from qgis._core import *
+from qgis.utils import iface
 
-from PyQt5 import QtCore
-from PyQt5.QtGui import *
-from PyQt5.QtCore import *
-from PyQt5.QtWidgets import QWidget
+from qgis.PyQt import QtCore
+from qgis.PyQt.QtGui import *
+from qgis.PyQt.QtCore import *
+from qgis.PyQt.QtWidgets import QWidget
 
-from PyQt5.QtWidgets import (QWidget, QMainWindow, QDockWidget, QTreeView, QStyle, QGridLayout, 
+from qgis.PyQt.QtWidgets import (QWidget, QMainWindow, QDockWidget, QTreeView, QStyle, QGridLayout,
                              QToolButton, QMenu, QListWidget, QListWidgetItem, QSpinBox, QTextEdit,
-                             QFileDialog, QLineEdit, QLabel, QPushButton, QCheckBox, QProgressBar, 
-                             QSlider, QFrame, QTextBrowser, QSplitter, QMessageBox, 
-                             QHBoxLayout, QVBoxLayout, QGroupBox, QAbstractItemView, 
-                             QSizePolicy, QApplication, QGraphicsDropShadowEffect )
+                             QFileDialog, QLineEdit, QLabel, QPushButton, QCheckBox, QProgressBar,
+                             QSlider, QFrame, QTextBrowser, QSplitter, QMessageBox, QComboBox,
+                             QHBoxLayout, QVBoxLayout, QGroupBox, QAbstractItemView,
+                             QSizePolicy, QApplication, QGraphicsDropShadowEffect)
 
 folder_parent = QgsApplication.qgisSettingsDirPath()
-kolba_dir = os.path.join(folder_parent, r'python\\plugins\\kolba')
+kolba_dir = os.path.join(folder_parent, 'python', 'plugins', 'kolba') # advice by alex_deshev
 cfg_folder = os.path.join(folder_parent, 'kolba_settings')
 cfg_file = os.path.join(cfg_folder, 'kolba_cfg.json')
 
 
-kolba_version = "1.2"
+def is_writable(dir_path):
+    try:
+        with tempfile.TemporaryFile(dir=dir_path):
+            return True
+    except Exception:
+        return False
+
+
+kolba_version = "1.4"
 kolba_updates = [
-    'ability to download scripts from direct web URLs',
-    'script descriptions are now taken from themselves',
-    'gif format support for themes',
-    'minor interface and system changes'
+    'Qt6 support',
+    'fixed crash on non-valid url of WebScript',
+    'added WebScript default url setting',
+    'WebScript description widget HTML support'
 ]
 
-default_scripts_path = os.path.abspath(os.sep)
-kolba_themes_path =    os.path.abspath(os.sep)
+default_scripts_path = str(Path.home() / "Documents")
 
-QICON_FOLDER_ON =   os.path.join(kolba_dir, 'img', 'icon_folder_on.png')
-QICON_FOLDER_OFF =  os.path.join(kolba_dir, 'img', 'icon_folder_off.png')
-QICON_PATH_LIST =   os.path.join(kolba_dir, 'img', 'path_list.png')
-QICON_KOLBA_LOGO =  os.path.join(kolba_dir, 'img', 'kolba_min_min.png')
-QICON_REFRESH =     os.path.join(kolba_dir, 'img', 'refresh.png')
-QICON_FOLDER =      os.path.join(kolba_dir, 'img', 'folder.png')
-QICON_SEARCH =      os.path.join(kolba_dir, 'img', 'search.png')
+QICON_FOLDER_ON = os.path.join(kolba_dir, 'img', 'icon_folder_on.png')
+QICON_FOLDER_OFF = os.path.join(kolba_dir, 'img', 'icon_folder_off.png')
+QICON_PATH_LIST = os.path.join(kolba_dir, 'img', 'path_list.png')
+QICON_KOLBA_LOGO = os.path.join(kolba_dir, 'img', 'kolba_min_min.png')
+QICON_REFRESH = os.path.join(kolba_dir, 'img', 'refresh.png')
+QICON_FOLDER = os.path.join(kolba_dir, 'img', 'folder.png')
+QICON_SEARCH = os.path.join(kolba_dir, 'img', 'search.png')
+QICON_CLOSE = os.path.join(kolba_dir, 'img', 'icon_close.png')
+QICON_PIN = os.path.join(kolba_dir, 'img', 'icon_pin.png')
 
-style_theme =       os.path.join(kolba_dir, 'styles', 'style_kolba_theme.json')
-style_no_theme =    os.path.join(kolba_dir, 'styles', 'style_kolba_no_theme.json')
+style_theme = os.path.join(kolba_dir, 'styles', 'style_kolba_theme.json')
+style_no_theme = os.path.join(kolba_dir, 'styles', 'style_kolba_no_theme.json')
 
 iface.kolba_plugin = {}
 
 # default config
 default_config = {
-    "path": default_scripts_path,
+    "path": default_scripts_path if is_writable(default_scripts_path) else '',
     "paths_are_opened": True,
-    "saved_paths":[],
+    "saved_paths": [],
     "theme": False,
-    "theme_opacity": 0.0
+    "theme_opacity": 0.0,
+    "splitter_orientation": "Horizontal",
+    "webscript_default_location_url": "https://gisworks.ru/qgis_tools"
 }
 
 global_stylesheet = {
-    'label_version':"""
+    'label_version': """
         QLabel{
             background-color: transparent;
             border: 0.5px outset gray;
@@ -139,7 +153,7 @@ global_stylesheet = {
             border-radius: 4px;
         }
     """,
-    'path_list_button':"""
+    'path_list_button': """
         QPushButton{
             border:0px;
         }
@@ -381,13 +395,12 @@ def read_cfg(data_file):
     if not os.path.isdir(cfg_folder):
         os.mkdir(cfg_folder)
     if not os.path.isfile(data_file):
-        with open(data_file, "w", encoding = 'utf-8') as d:
+        with open(data_file, "w", encoding='utf-8') as d:
             json.dump(default_config, d, indent=4, ensure_ascii=False)
             data = default_config
     else:
         with open(data_file, 'r') as fp:
             data = json.load(fp)
-
 
     path = data['path']
     descriptions_path = os.path.join(path, 'descriptions.json')
@@ -407,7 +420,7 @@ def get_current_screen_params():
     screen_resolutions = [res.geometry() for res in all_screens]
     current_pos = QApplication.activeWindow().pos()
     new_x = current_pos.x() + 1
-    new_y = 1 if current_pos.y()<0 else current_pos.y() + 9
+    new_y = 1 if current_pos.y() < 0 else current_pos.y() + 9
     new_pnt = QPoint(new_x, new_y)
     int_screen = [f for f in screen_resolutions if f.contains(new_pnt)]
     if int_screen:
@@ -421,8 +434,8 @@ def get_current_screen_params():
     center_x = x_screen + dim_x / 2
     center_y = y_screen + dim_y / 2
     out_data = {
-        'x_screen':x_screen, 
-        'y_screen':y_screen, 
+        'x_screen': x_screen,
+        'y_screen': y_screen,
         'dim_x': dim_x,
         'dim_y': dim_y,
         'center_x': center_x,
@@ -444,6 +457,15 @@ def extract_metadata(script_text):
     return meta
 
 
+def is_url(url_string):
+    # check if string is url
+    try:
+        result = urlparse(url_string)
+        return all([result.scheme, result.netloc])
+    except ValueError:
+        return False
+
+
 class PathEditor(QWidget):
     # user path editor 
 
@@ -451,18 +473,18 @@ class PathEditor(QWidget):
         super().__init__()
 
         # settings
-        self.setWindowModality(Qt.ApplicationModal)
-        self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowStaysOnTopHint)
+        self.setWindowModality(Qt.WindowModality.ApplicationModal)
+        self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowType.WindowStaysOnTopHint)
         self.setWindowTitle('Path')
 
-        self.main_widget = parent 
+        self.main_widget = parent
         self.edit_item = edit_item
         mw_pos = self.main_widget.pos()
         mw_size = self.main_widget.size()
         self.setGeometry(
-            int(mw_pos.x() + mw_size.width()/2 - 200), 
-            int(mw_pos.y() + mw_size.height()/2 - 80), 
-            400, 
+            int(mw_pos.x() + mw_size.width() / 2 - 200),
+            int(mw_pos.y() + mw_size.height() / 2 - 80),
+            400,
             10
         )
 
@@ -470,29 +492,29 @@ class PathEditor(QWidget):
         self.vbox = QVBoxLayout(self)
         self.hbox_path = QHBoxLayout(self)
         self.hbox_complete = QHBoxLayout(self)
-        
+
         self.lt_ledit = QLineEdit()
         self.lt_ledit.setPlaceholderText("path to folder...")
         if path:
             self.lt_ledit.setText(path)
 
         self.path_button = QPushButton()
-        self.path_button.setIcon(self.style().standardIcon(QStyle.SP_DirIcon))
+        self.path_button.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DirIcon))
         self.path_button.setToolTip('Path to folder')
         self.path_button.setMaximumWidth(35)
-        
+
         self.ok_btn = QPushButton("Ok")
         self.cancel_btn = QPushButton("Cancel")
-        
+
         self.hbox_path.addWidget(self.lt_ledit)
         self.hbox_path.addWidget(self.path_button)
-        
+
         self.hbox_complete.addWidget(self.ok_btn)
         self.hbox_complete.addWidget(self.cancel_btn)
-        
+
         self.vbox.addLayout(self.hbox_path)
         self.vbox.addLayout(self.hbox_complete)
-        
+
         self.setLayout(self.vbox)
 
         # actions
@@ -501,37 +523,34 @@ class PathEditor(QWidget):
         self.cancel_btn.clicked.connect(self.cancel_add)
         self.show()
 
-    
     def path_selector(self):
         # dir selector
 
         dialog = QFileDialog()
-        dialog.setFileMode(QFileDialog.Directory)
-        dialog.setOption(QFileDialog.DontUseNativeDialog) 
-        default_path = QStandardPaths.writableLocation(QStandardPaths.DocumentsLocation)
+        dialog.setFileMode(QFileDialog.FileMode.Directory)
+        dialog.setOption(QFileDialog.Option.DontUseNativeDialog)
+        default_path = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DocumentsLocation)
         dialog.setDirectory(default_path)
 
-        result =  dialog.getExistingDirectoryUrl(self, "Select folder with scripts")
+        result = dialog.getExistingDirectoryUrl(self, "Select folder with scripts")
         if result:
             selected_path = result.path().strip(string.punctuation)
             self.lt_ledit.setText(selected_path)
-           
 
     def check_all_paths(self, chek_txt):
         # check for path if it already exists
 
-        path_exists = False 
+        path_exists = False
         for itm in range(self.main_widget.lw.count()):
             txt_item = self.main_widget.lw.item(itm).text()
             if os.path.normpath(txt_item) == os.path.normpath(chek_txt):
                 path_exists = True
         return path_exists
 
-        
     def add_path(self):
         # adding path to list
 
-        n_path_url = os.path.normpath(self.lt_ledit.text()) 
+        n_path_url = os.path.normpath(self.lt_ledit.text())
         check_path = self.check_all_paths(n_path_url)
         if os.path.isdir(n_path_url):
             if self.edit_item:
@@ -552,13 +571,11 @@ class PathEditor(QWidget):
                     self.close()
         else:
             self.warning_message('Invalid path')
-    
 
     def cancel_add(self):
         # cancel path adding 
         self.close()
 
-    
     def warning_message(self, err_text):
         # warning notification
 
@@ -566,9 +583,7 @@ class PathEditor(QWidget):
         msg.warning(self, "Warning", err_text)
 
 
-
-    
-class PathList(QMainWindow):
+class KolbaSettings(QMainWindow):
     # path editor table
 
     def __init__(self, parent=None):
@@ -577,78 +592,113 @@ class PathList(QMainWindow):
         # settings
         self.settings = QtCore.QSettings()
         self.mw = parent
-        self.setWindowModality(Qt.ApplicationModal)
-        self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowStaysOnTopHint | Qt.WindowCloseButtonHint | Qt.WindowMinimizeButtonHint)
-        self.setWindowFlags(self.windowFlags() & QtCore.Qt.CustomizeWindowHint)
-        self.setWindowFlags(self.windowFlags() & ~QtCore.Qt.WindowMinMaxButtonsHint)
-        self.setWindowTitle('Paths and other settings')
+        self.setWindowModality(Qt.WindowModality.ApplicationModal)
+        self.setWindowFlags(
+            self.windowFlags() | QtCore.Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.WindowCloseButtonHint | Qt.WindowType.WindowMinimizeButtonHint)
+        self.setWindowFlags(self.windowFlags() & QtCore.Qt.WindowType.CustomizeWindowHint)
+        self.setWindowFlags(self.windowFlags() & ~QtCore.Qt.WindowType.WindowMinMaxButtonsHint)
+        self.setWindowTitle('Kolba settings')
 
         scr_params = get_current_screen_params()
         c_x, c_y = scr_params['center_x'], scr_params['center_y']
-        self.setGeometry(int(c_x-600/2), int(c_y-200), 600, 260)
+        self.setGeometry(int(c_x - 600 / 2), int(c_y - 200), 600, 260)
 
         # variables
         self.init_state_theme = self.mw.kolba_widget.theme
         self.init_state_opacity = self.mw.kolba_widget.theme_opacity
+        self.init_state_tool_widget_ori = self.mw.kolba_widget.tw_orientation
+        self.ws_path = self.mw.kolba_widget.webscript_default_location_url
         self.just_close = False
         self.cancel_edits = False
 
+        # default opacity
         if not self.init_state_theme:
             self.init_state_opacity = 20
 
-        
         self.settings_widget = QWidget()
         self.setCentralWidget(self.settings_widget)
-        
-        # widgets
+
+        # layout
         layout = QVBoxLayout(self)
         h_layout = QHBoxLayout(self)
-
         self.grid_theme = QGridLayout(self)
-        
-        list_menu_paths = []
-        for item in self.mw.kolba_widget.menu.actions():
-            list_menu_paths.append(item.text())
-            
+
+        # path labels, buttons
         lbl_paths = QLabel("Script paths")
         btn_plus = QPushButton()
         btn_plus.setIcon(QIcon(":images/themes/default/symbologyAdd.svg"))
         btn_plus.setMaximumWidth(30)
-        
+
         btn_minus = QPushButton()
         btn_minus.setIcon(QIcon(":images/themes/default/symbologyRemove.svg"))
         btn_minus.setMaximumWidth(30)
+
         h_layout.addWidget(lbl_paths)
         h_layout.addWidget(btn_plus)
         h_layout.addWidget(btn_minus)
-        
-        self.lw = QListWidget()
-        self.lw.setDragDropMode(QAbstractItemView.DragDrop)
-        self.lw.setDefaultDropAction(Qt.MoveAction)
 
+        # path listwidget
+        self.lw = QListWidget()
+        self.lw.setDragDropMode(QAbstractItemView.DragDropMode.DragDrop)
+        self.lw.setDefaultDropAction(Qt.DropAction.MoveAction)
+
+        # path collection
+        list_menu_paths = []
+        for item in self.mw.kolba_widget.menu.actions():
+            list_menu_paths.append(item.text())
+        
+        for f in list_menu_paths:
+            lwi = QListWidgetItem()
+            lwi.setText(f)
+            self.lw.addItem(lwi)
+
+        # webscript default url
+        self.webscript_default_location_lbl = QLabel("WebScript default location")
+        self.webscript_default_location = QLineEdit()
+        self.webscript_default_location.setPlaceholderText("url to webscripts location...")
+        if self.ws_path:
+            self.webscript_default_location.setText(self.ws_path)
+        
+        self.layout_ws = QHBoxLayout()
+        self.layout_ws.addWidget(self.webscript_default_location_lbl)
+        self.layout_ws.addWidget(self.webscript_default_location, stretch=1)
+
+        # frames orientation
+        self.tools_orientation_lbl = QLabel("Tools widget orientation")
+        self.tools_orientation = QComboBox()
+        self.tools_orientation.addItems(["Horizontal", "Vertical"])
+        self.tools_orientation.setCurrentIndex(0) if self.init_state_tool_widget_ori == 'Horizontal' else self.tools_orientation.setCurrentIndex(1)
+        self.layout_tools_ori = QHBoxLayout()
+        self.layout_tools_ori.addWidget(self.tools_orientation_lbl)
+        self.layout_tools_ori.addWidget(self.tools_orientation, stretch=1)
+
+        # theme widgets
         self.check_theme = QCheckBox("Theme")
 
         self.lbl_theme_pic = QLabel("Path to image")
         self.theme_path = QLineEdit()
-        self.theme_path.setPlaceholderText('backrgound image...')
+        self.theme_path.setPlaceholderText('background image...')
         self.theme_path.setDisabled(True)
-        self.theme_path.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        # self.theme_path.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.theme_path.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
         self.btn_theme_path = QPushButton()
-        self.btn_theme_path.setIcon(self.style().standardIcon(QStyle.SP_DirIcon))
+        self.btn_theme_path.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DirIcon))
         self.btn_theme_path.setMaximumWidth(30)
         self.btn_theme_path.setDisabled(True)
 
+        self.h_layout_theme = QHBoxLayout()
+        self.h_layout_theme.addWidget(self.theme_path)
+        self.h_layout_theme.addWidget(self.btn_theme_path)
+
         self.opacity_slider_label = QLabel("Transparency")
-        self.opacity_slider = QSlider(Qt.Horizontal)
+        self.opacity_slider = QSlider(Qt.Orientation.Horizontal)
         self.opacity_slider.setMinimum(0)
         self.opacity_slider.setSingleStep(1)
         self.opacity_slider.setMaximum(100)
-        self.opacity_slider.setValue(self.init_state_opacity) 
+        self.opacity_slider.setValue(self.init_state_opacity)
         self.opacity_slider.valueChanged.connect(self.on_value_changed)
         self.opacity_slider.setDisabled(True)
-        
+
         self.spinbox_opacity = QSpinBox(self)
         self.spinbox_opacity.setMinimum(0)
         self.spinbox_opacity.setMaximum(100)
@@ -657,17 +707,15 @@ class PathList(QMainWindow):
         self.spinbox_opacity.valueChanged.connect(self.on_value_changed)
         self.spinbox_opacity.setDisabled(True)
 
-        self.grid_theme.addWidget(self.lbl_theme_pic,        0, 0, 1, 1)
-        self.grid_theme.addWidget(self.theme_path,           0, 1, 1, 2)
-        self.grid_theme.addWidget(self.btn_theme_path,       0, 3, 1, 1, alignment=Qt.AlignRight)
+        # collecting theme widgets into grid
+        self.grid_theme.addWidget(self.lbl_theme_pic, 0, 0, 1, 1)
+        self.grid_theme.addLayout(self.h_layout_theme, 0, 1, 1, 2)
+        self.grid_theme.addWidget(self.opacity_slider_label, 3, 0, 1, 1)
+        self.grid_theme.addWidget(self.opacity_slider, 3, 1, 1, 1)
+        self.grid_theme.addWidget(self.spinbox_opacity, 3, 2, 1, 1, alignment=Qt.AlignmentFlag.AlignRight)
 
-        self.grid_theme.addWidget(self.opacity_slider_label, 1, 0, 1, 1)
-        self.grid_theme.addWidget(self.opacity_slider,       1, 1, 1, 2)
-        self.grid_theme.addWidget(self.spinbox_opacity,      1, 3, 1, 1)
-        self.grid_theme.setColumnStretch(1, 1)
-        self.grid_theme.setColumnStretch(2, 0)
-
-        if self.mw.kolba_widget.theme: 
+        # set theme
+        if self.mw.kolba_widget.theme:
             if os.path.isfile(self.mw.kolba_widget.theme):
                 self.check_theme.setChecked(True)
                 self.theme_path.setDisabled(False)
@@ -682,26 +730,35 @@ class PathList(QMainWindow):
                 self.spinbox_opacity.setDisabled(True)
                 self.opacity_slider.setDisabled(True)
                 self.theme_path.setText("")
-
+        
+        # footer buttons: save, cancel
         self.save_lt = QHBoxLayout(self)
         self.save_btn = QPushButton("Save")
         self.cancel_btn = QPushButton("Cancel")
         self.save_lt.addWidget(self.save_btn)
         self.save_lt.addWidget(self.cancel_btn)
 
-        layout.addLayout(h_layout)
-        layout.addWidget(self.lw)
-        layout.addWidget(self.check_theme)
-        layout.addLayout(self.grid_theme)
-        layout.addLayout(self.save_lt)
-        
+        # collect everything
+        gb_path = QGroupBox("Paths")
+        gb_style = QGroupBox("Style")
+        layout_path = QVBoxLayout()
+        layout_path.addLayout(h_layout)
+        layout_path.addWidget(self.lw)
+        layout_path.addLayout(self.layout_ws)
+        gb_path.setLayout(layout_path)
+
+        layout_style = QVBoxLayout()
+        layout_style.addLayout(self.layout_tools_ori)
+        layout_style.addWidget(self.check_theme)
+        layout_style.addLayout(self.grid_theme)
+        layout_style.addLayout(self.save_lt)
+        gb_style.setLayout(layout_style)
+
+        layout.addWidget(gb_path)
+        layout.addWidget(gb_style)
+
         self.settings_widget.setLayout(layout)
 
-        for f in list_menu_paths:
-            lwi = QListWidgetItem()
-            lwi.setText(f)
-            self.lw.addItem(lwi)
-        
         # actions
         btn_plus.clicked.connect(self.add_new_path)
         btn_minus.clicked.connect(self.delete_path)
@@ -710,9 +767,15 @@ class PathList(QMainWindow):
         self.lw.doubleClicked.connect(self.edit_path)
         self.check_theme.stateChanged.connect(self.check_theme_path)
         self.btn_theme_path.clicked.connect(self.get_theme_file)
+        self.tools_orientation.currentIndexChanged.connect(self.set_tw_orientation)
 
         self.show()
-    
+
+    def set_tw_orientation(self):
+        if self.tools_orientation.currentText() == 'Horizontal':
+            self.mw.kolba_widget.splitter_body.setOrientation(Qt.Orientation.Horizontal)
+        else:
+            self.mw.kolba_widget.splitter_body.setOrientation(Qt.Orientation.Vertical)
 
     def on_value_changed(self, val):
         # change opacity of theme image
@@ -727,11 +790,10 @@ class PathList(QMainWindow):
             self.opacity_slider.blockSignals(False)
 
         if self.mw.overlay:
-            x = round(1.0 - round(val/100, 2), 2)
+            x = round(1.0 - round(val / 100, 2), 2)
             if self.mw.overlay:
                 self.mw.overlay.opacity = x
 
-    
     def check_theme_path(self):
         # applying/removing the theme 
 
@@ -748,9 +810,9 @@ class PathList(QMainWindow):
                 if os.path.isfile(pic_file_browser):
                     if os.path.getsize(pic_file_browser) < 20000000:
                         self.mw.overlay = ThemeWidget(
-                            self.mw, 
-                            overlay_image_path=pic_file_browser, 
-                            opacity = round(1.0 - round(self.opacity_slider.value()/100, 2), 2)
+                            self.mw,
+                            overlay_image_path=pic_file_browser,
+                            opacity=round(1.0 - round(self.opacity_slider.value() / 100, 2), 2)
                         )
                         self.mw.overlay.resize(self.mw.size())
                         self.mw.overlay.show()
@@ -776,12 +838,12 @@ class PathList(QMainWindow):
             self.mw.overlay.lower()
             self.mw.update()
 
-
     def get_theme_file(self):
         # selecting theme image file 
 
-        self.last_dir = self.settings.value("kolba_themes_dir", kolba_themes_path)
-        pic_file_browser = QFileDialog.getOpenFileName(self, "Select image", self.last_dir, "Images(*.jpeg *.jpg *.png *.gif)")[0]
+        self.last_dir = self.settings.value("kolba_themes_dir", default_scripts_path)
+        pic_file_browser = \
+        QFileDialog.getOpenFileName(self, "Select image", self.last_dir, "Images(*.jpeg *.jpg *.png *.gif)")[0]
         if pic_file_browser:
             if os.path.isfile(pic_file_browser):
                 if os.path.getsize(pic_file_browser) > 20000000:
@@ -791,7 +853,9 @@ class PathList(QMainWindow):
                     self.last_dir = os.path.dirname(pic_file_browser)
                     self.settings.setValue("kolba_themes_dir", self.last_dir)
                     if not self.mw.overlay:
-                        self.mw.overlay = ThemeWidget(self.mw, overlay_image_path=pic_file_browser, opacity = round(1.0 - round(self.opacity_slider.value()/100, 2), 2))
+                        self.mw.overlay = ThemeWidget(self.mw, overlay_image_path=pic_file_browser,
+                                                      opacity=round(1.0 - round(self.opacity_slider.value() / 100, 2),
+                                                                    2))
                         self.mw.overlay.resize(self.mw.size())
                         self.mw.overlay.show()
                         self.mw.overlay.lower()
@@ -803,13 +867,11 @@ class PathList(QMainWindow):
                         else:
                             self.set_pic_theme(pic_file_browser)
 
-
     def add_new_path(self):
         # adding a new path
 
         self.v = PathEditor(self, None, False)
 
-        
     def edit_path(self):
         # editing an existing path
 
@@ -817,7 +879,6 @@ class PathList(QMainWindow):
         if s_items:
             self.v = PathEditor(self, s_items[0].text(), s_items[0])
 
-    
     def delete_path(self):
         # delete selected path
 
@@ -826,7 +887,6 @@ class PathList(QMainWindow):
             idx = self.lw.indexFromItem(s_items[0]).row()
             self.lw.takeItem(idx)
 
-    
     def save_settings(self):
         # save settings 
 
@@ -844,9 +904,9 @@ class PathList(QMainWindow):
         for path in self.mw.kolba_widget.recent_paths:
             if os.path.normpath(path) == os.path.normpath(self.mw.kolba_widget.wpath):
                 path_exists = True
-        
+
         # if actual path is no longer available, the first from recent is taken
-        if not path_exists and self.mw.kolba_widget.recent_paths:        
+        if not path_exists and self.mw.kolba_widget.recent_paths:
             self.mw.kolba_widget.wpath = self.mw.kolba_widget.recent_paths[0]
 
         self.mw.kolba_widget.path_line.setText(self.mw.kolba_widget.wpath)
@@ -867,19 +927,23 @@ class PathList(QMainWindow):
             self.mw.kolba_widget.theme = None
             self.mw.kolba_widget.theme_opacity = 20.0
             global_stylesheet = kolba_no_theme
-        
+
+        # check tool widget orientation
+        self.mw.kolba_widget.tw_orientation = 'Horizontal' if self.tools_orientation.currentText() == 'Horizontal' else 'Vertical'
+
+        # set websctipts new path
+        self.mw.kolba_widget.webscript_default_location_url = self.webscript_default_location.text()
+
         # wtie config without confirm
         self.mw.write_new_cfg()
         self.just_close = True
         self.close()
-        
 
     def warning_message(self, err_text):
         # warning notification
 
         msg = QMessageBox()
         msg.warning(self, "Notification", err_text)
-
 
     def cancel_settings(self):
         # cancel saving changes
@@ -891,16 +955,14 @@ class PathList(QMainWindow):
         self.mw.overlay.resize(self.mw.size())
         self.mw.update()
 
-
     def set_gif_theme(self, gif_path):
         self.mw.overlay.overlay_pixmap = QMovie(gif_path)
-        self.mw.overlay.overlay_pixmap.setCacheMode(QMovie.CacheAll) 
+        self.mw.overlay.overlay_pixmap.setCacheMode(QMovie.CacheMode.CacheAll)
         self.mw.overlay.overlay_pixmap.start()
         self.mw.overlay.overlay_pixmap.loopCount()
-        self.mw.overlay.overlay_pixmap.updated.connect(self.mw.update) 
+        self.mw.overlay.overlay_pixmap.updated.connect(self.mw.update)
         self.mw.overlay.resize(self.mw.size())
         self.mw.update()
-
 
     def set_previous_state(self):
         # return to a state at launching widget
@@ -913,10 +975,12 @@ class PathList(QMainWindow):
                 self.set_pic_theme(self.init_state_theme)
         else:
             self.check_theme.setChecked(False)
+        
+        self.tools_orientation.setCurrentText(self.init_state_tool_widget_ori)
+        self.webscript_default_location.setText(self.ws_path)
 
         self.check_theme_path()
         self.close()
-
 
     def closeEvent(self, event):
         # close event
@@ -926,7 +990,7 @@ class PathList(QMainWindow):
             self.spinbox_opacity.setValue(self.init_state_opacity)
             self.close()
             return
- 
+
         # close or wait for user decicsion
         self.need_check = False
         if self.just_close:
@@ -936,16 +1000,16 @@ class PathList(QMainWindow):
             if self.init_state_theme:
                 # opacity is changed 
                 if self.init_state_opacity != self.spinbox_opacity.value():
-                    self.need_check = True 
-                
-                # theme checkbox is not checked and theme path is non-empty
+                    self.need_check = True
+
+                    # theme checkbox is not checked and theme path is non-empty
                 if not self.check_theme.isChecked() and self.theme_path.text():
                     self.need_check = True
 
                 # theme path is non-empty and new
-                if self.init_state_theme and self.init_state_theme!= self.theme_path.text():
+                if self.init_state_theme and self.init_state_theme != self.theme_path.text():
                     self.need_check = True
-                
+
                 # theme checkbox is checked and theme path is empty
                 if self.check_theme.isChecked() and not self.theme_path.text():
                     self.set_previous_state()
@@ -954,19 +1018,25 @@ class PathList(QMainWindow):
             # theme was turned off
             else:
                 if self.check_theme.isChecked():
-                    self.need_check = True 
+                    self.need_check = True
             
+            if self.init_state_tool_widget_ori != self.tools_orientation.currentText():
+                self.need_check = True
+            
+            if self.webscript_default_location.text()!=self.ws_path:
+                self.need_check = True
+
             # answer user if he is ok to save current state
             if self.need_check:
                 msg_box = QMessageBox(self)
                 msg_box.setWindowTitle('Notification')
                 msg_box.setText('Save changes?')
 
-                yes_button = msg_box.addButton("Yes", QMessageBox.YesRole)
-                no_button = msg_box.addButton("No", QMessageBox.NoRole)
+                yes_button = msg_box.addButton("Yes", QMessageBox.ButtonRole.YesRole)
+                no_button = msg_box.addButton("No", QMessageBox.ButtonRole.NoRole)
 
-                msg_box.setDefaultButton(no_button)  
-                reply = msg_box.exec_()  
+                msg_box.setDefaultButton(no_button)
+                reply = msg_box.exec()
                 if reply == 0:
                     self.save_settings()
                 else:
@@ -980,16 +1050,16 @@ class AboutKolba(QMainWindow):
     def __init__(self, version, updates):
         super().__init__()
         self.setWindowTitle('About')
-        self.setWindowModality(Qt.ApplicationModal)
-        self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowStaysOnTopHint | Qt.WindowCloseButtonHint | Qt.WindowMinimizeButtonHint)
-        self.setWindowFlags(self.windowFlags() & QtCore.Qt.CustomizeWindowHint)
-        self.setWindowFlags(self.windowFlags() & ~QtCore.Qt.WindowMinMaxButtonsHint)
+        self.setWindowModality(Qt.WindowModality.ApplicationModal)
+        self.setWindowFlags(
+            self.windowFlags() | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.WindowCloseButtonHint | Qt.WindowType.WindowMinimizeButtonHint)
+        self.setWindowFlags(self.windowFlags() & Qt.WindowType.CustomizeWindowHint)
+        self.setWindowFlags(self.windowFlags() & ~Qt.WindowType.WindowMinMaxButtonsHint)
         self.version = version
         self.updates = updates
         self.initUI()
 
     def initUI(self):
-
         self.about_widget = QWidget()
         self.setCentralWidget(self.about_widget)
 
@@ -997,53 +1067,54 @@ class AboutKolba(QMainWindow):
         pixmap = QPixmap(QICON_KOLBA_LOGO)
         scr_params = get_current_screen_params()
         c_x, c_y = scr_params['center_x'], scr_params['center_y']
-        
-        
+
         # effect
-        shadow = QGraphicsDropShadowEffect() 
-        shadow.setBlurRadius(20) 
+        shadow = QGraphicsDropShadowEffect()
+        shadow.setBlurRadius(20)
         shadow.setOffset(5, 5)
-        shadow.setColor(Qt.magenta)
-        
+        shadow.setColor(QColor('magenta'))
+
         vbox = QVBoxLayout()
         group_box = QGroupBox("")
         group_box_layout = QVBoxLayout()
-        
+
         # header 
         self.label_kolba = QLabel(f"Kolba v{self.version} (public)")
         self.label_kolba.setStyleSheet('font: bold 18px "Microsoft YaHei UI";')
-        self.label_kolba.setAlignment(Qt.AlignCenter)
+        self.label_kolba.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         self.label_help = QLabel(None)
-        self.label_help.setAlignment(Qt.AlignCenter)
+        self.label_help.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.label_help.setOpenExternalLinks(True)
         self.label_help.setText(
             '''<a href="https://github.com/pavelpereverzev/kolba/tree/main?tab=readme-ov-file">Help</a>'''
         )
-        
+
         # picture
         self.label_pic = QLabel(self)
         self.label_pic.setPixmap(pixmap)
         self.label_pic.setGraphicsEffect(shadow)
 
         # info
-        self.label_txt = QLabel("""Kolba (ex "Scripter" from easyPlugin tool) is a plugin for testing and running scripts/plugins. """ \
-        """It allows developers to quickly test their scripts and share them among collegaues instead of compiling them into zip plugins.""")
-        self.label_txt.setWordWrap(True)   
-        self.label_txt.setAlignment(Qt.AlignLeft) 
+        self.label_txt = QLabel(
+            """Kolba (ex "Scripter" from easyPlugin tool) is a plugin for testing and running scripts/plugins. """ \
+            """It allows developers to quickly test their scripts and share them among collegaues instead of """ \
+            """compiling them into zip plugins.""")
+        self.label_txt.setWordWrap(True)
+        self.label_txt.setAlignment(Qt.AlignmentFlag.AlignLeft)
 
         # updates 
         self.label_upd = QLabel(upd)
-        self.label_upd.setWordWrap(True)   
-        self.label_upd.setAlignment(Qt.AlignLeft) 
-        
+        self.label_upd.setWordWrap(True)
+        self.label_upd.setAlignment(Qt.AlignmentFlag.AlignLeft)
+
         # copyright
-        self.label_me = QLabel("Pereverzev Pavel, 2025")
-        self.label_me.setAlignment(Qt.AlignRight) 
-        
+        self.label_me = QLabel("Pereverzev Pavel, 2026")
+        self.label_me.setAlignment(Qt.AlignmentFlag.AlignRight)
+
         # layout ordering
-        group_box_layout.addWidget(self.label_pic, Qt.AlignCenter)
-        group_box_layout.setAlignment(Qt.AlignCenter)
+        group_box_layout.addWidget(self.label_pic, Qt.AlignmentFlag.AlignCenter)
+        group_box_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         group_box.setLayout(group_box_layout)
 
         vbox.addWidget(self.label_kolba)
@@ -1054,7 +1125,7 @@ class AboutKolba(QMainWindow):
         vbox.addWidget(self.label_me)
 
         self.about_widget.setLayout(vbox)
-        
+
         # animations 
         self.animation_color = QPropertyAnimation(shadow, b'color')
         self.animation_color.setDuration(5000)
@@ -1065,7 +1136,7 @@ class AboutKolba(QMainWindow):
         self.animation_color.setKeyValueAt(0.8, QColor('#7400a5'))
         self.animation_color.setKeyValueAt(1.0, QColor('#a50088'))
         self.animation_color.setLoopCount(-1)
-        self.animation_color.setEasingCurve(QEasingCurve.InOutCubic) 
+        self.animation_color.setEasingCurve(QEasingCurve.Type.InOutCubic)
 
         self.animation_blur = QPropertyAnimation(shadow, b'blurRadius')
         self.animation_blur.setDuration(15500)
@@ -1076,15 +1147,15 @@ class AboutKolba(QMainWindow):
         self.animation_blur.setKeyValueAt(0.8, 30)
         self.animation_blur.setKeyValueAt(1.0, 25)
         self.animation_blur.setLoopCount(-1)
-        self.animation_blur.setEasingCurve(QEasingCurve.InOutCubic)
-        
+        self.animation_blur.setEasingCurve(QEasingCurve.Type.InOutCubic)
+
         self.animation_group = QParallelAnimationGroup()
         self.animation_group.addAnimation(self.animation_blur)
         self.animation_group.addAnimation(self.animation_color)
         self.animation_group.start()
-       
+
         self.show()
-        self.setGeometry(int(c_x-260/2), int(c_y-200), 256, 512)
+        self.setGeometry(int(c_x - 260 / 2), int(c_y - 200), 256, 512)
 
     def closeEvent(self, event):
         self.animation_group.stop()
@@ -1092,17 +1163,16 @@ class AboutKolba(QMainWindow):
 
 class AltLabelVersion(QLabel):
     clicked = pyqtSignal()
-    def __init__(self,parent=None):
-        QLabel.__init__(self,parent)
+
+    def __init__(self, parent=None):
+        QLabel.__init__(self, parent)
         self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
 
-   
     def mousePressEvent(self, e):
         super().mouseReleaseEvent(e)
         self.setStyleSheet(global_stylesheet['label_version_btn'])
         self.clicked.emit()
 
-    
     def mouseReleaseEvent(self, e):
         self.setStyleSheet(global_stylesheet['label_version_btn_clicked'])
         self.about_widget = AboutKolba(kolba_version, kolba_updates)
@@ -1110,40 +1180,40 @@ class AltLabelVersion(QLabel):
 
 
 class ScriptPath(QLineEdit):
-    def __init__(self,parent=None):
-        QLineEdit.__init__(self,parent)
+    def __init__(self, parent=None):
+        QLineEdit.__init__(self, parent)
         self.setStyleSheet(global_stylesheet['path_edit'])
 
         self.cb_open = QToolButton(self)
-        self.cb_open.setCursor(Qt.PointingHandCursor)
-        self.cb_open.setIcon(self.style().standardIcon(QStyle.SP_TitleBarUnshadeButton))
-        self.cb_open.setPopupMode(QToolButton.InstantPopup)
+        self.cb_open.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.cb_open.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_TitleBarUnshadeButton))
+        self.cb_open.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         self.cb_open.setStyleSheet(global_stylesheet['path_edit_button'])
 
         self.cb_refresh = QToolButton(self)
-        self.cb_refresh.setCursor(Qt.PointingHandCursor)
+        self.cb_refresh.setCursor(Qt.CursorShape.PointingHandCursor)
         self.cb_refresh.setIcon(QIcon(QICON_REFRESH))
         self.cb_refresh.setToolTip('Update tools list')
         self.cb_refresh.setStyleSheet(global_stylesheet['path_edit_button'])
 
         self.cb_web_script = QToolButton(self)
-        self.cb_web_script.setIcon(self.style().standardIcon(QStyle.SP_ArrowDown))
-        self.cb_web_script.setCursor(Qt.PointingHandCursor)
+        self.cb_web_script.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_ArrowDown))
+        self.cb_web_script.setCursor(Qt.CursorShape.PointingHandCursor)
         self.cb_web_script.setToolTip('Get Web Script')
         self.cb_web_script.setStyleSheet(global_stylesheet['path_edit_button'])
 
         self.cb_folder = QToolButton(self)
-        self.cb_folder.setCursor(Qt.PointingHandCursor)
+        self.cb_folder.setCursor(Qt.CursorShape.PointingHandCursor)
         self.cb_folder.setIcon(QIcon(QICON_FOLDER))
         self.cb_folder.setToolTip('Path to scripts')
         self.cb_folder.setStyleSheet(global_stylesheet['path_edit_button_right'])
 
         layout = QHBoxLayout(self)
         layout.addStretch()
-        layout.addWidget(self.cb_open,    0, Qt.AlignRight)
-        layout.addWidget(self.cb_refresh, 0, Qt.AlignRight)
-        layout.addWidget(self.cb_web_script, 0, Qt.AlignRight)
-        layout.addWidget(self.cb_folder,  0, Qt.AlignRight)
+        layout.addWidget(self.cb_open, 0, Qt.AlignmentFlag.AlignRight)
+        layout.addWidget(self.cb_refresh, 0, Qt.AlignmentFlag.AlignRight)
+        layout.addWidget(self.cb_web_script, 0, Qt.AlignmentFlag.AlignRight)
+        layout.addWidget(self.cb_folder, 0, Qt.AlignmentFlag.AlignRight)
 
         layout.setSpacing(0)
         layout.setMargin(1)
@@ -1152,51 +1222,48 @@ class ScriptPath(QLineEdit):
 class ThemeWidget(QWidget):
     def __init__(self, parent=None, overlay_image_path=None, opacity=0.2):
         super().__init__(parent)
-        self.setAttribute(Qt.WA_TransparentForMouseEvents, True)
-        self.setAttribute(Qt.WA_NoSystemBackground)
-        self.setAttribute(Qt.WA_TranslucentBackground)
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        self.setAttribute(Qt.WidgetAttribute.WA_NoSystemBackground)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.img_path = overlay_image_path
 
         self.overlay_pixmap = QPixmap(overlay_image_path) if os.path.isfile(overlay_image_path) else None
         if overlay_image_path.endswith('.gif'):
             self.overlay_pixmap = QMovie(overlay_image_path)
-            self.overlay_pixmap.setCacheMode(QMovie.CacheAll) 
+            self.overlay_pixmap.setCacheMode(QMovie.CacheMode.CacheAll)
             self.overlay_pixmap.start()
             self.overlay_pixmap.loopCount()
-            self.overlay_pixmap.updated.connect(self.update) 
+            self.overlay_pixmap.updated.connect(self.update)
         self._opacity = opacity
         # self._blend_mode = blend_mode
         self.resize(parent.size())
 
-    
     def paintEvent(self, event):
         if self.overlay_pixmap:
             painter = QPainter(self)
-            # painter.setOpacity(self._opacity)  
             if isinstance(self.overlay_pixmap, QMovie):
-                painter.setOpacity(self._opacity)  
-                scaled_pixmap = self.overlay_pixmap.currentPixmap().scaled(self.size(), Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
+                painter.setOpacity(self._opacity)
+                scaled_pixmap = self.overlay_pixmap.currentPixmap().scaled(self.size(), Qt.AspectRatioMode.KeepAspectRatioByExpanding,
+                                                                           Qt.TransformationMode.SmoothTransformation)
                 painter.drawPixmap(0, 0, scaled_pixmap)
             else:
-                painter.setOpacity(self._opacity)  
-                scaled_pixmap = self.overlay_pixmap.scaled(self.size(), Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
+                painter.setOpacity(self._opacity)
+                scaled_pixmap = self.overlay_pixmap.scaled(self.size(), Qt.AspectRatioMode.KeepAspectRatioByExpanding,
+                                                           Qt.TransformationMode.SmoothTransformation)
                 painter.drawPixmap(0, 0, scaled_pixmap)
-
 
     @property
     def opacity(self):
         return self._opacity
 
-
     @opacity.setter
     def opacity(self, value):
-        self._opacity = max(0.0, min(1.0, float(value))) 
-        self.update() 
-
+        self._opacity = max(0.0, min(1.0, float(value)))
+        self.update()
 
     def resizeEvent(self, event):
-        self.resize(self.parent().size()) 
-        
+        self.resize(self.parent().size())
+
 
 class HoverButtonTreeView(QTreeView):
     def __init__(self, parent):
@@ -1204,29 +1271,28 @@ class HoverButtonTreeView(QTreeView):
         self.p = parent
         self.setMouseTracking(True)
         self.hovered_index = None
-    
 
     def leaveEvent(self, event):
         if self.hovered_index:
             self.setIndexWidget(self.hovered_index, None)
             self.hovered_index = None
-        
+
         super().leaveEvent(event)
-    
+
 
 class WebScript(QMainWindow):
     def __init__(self, parent):
         # super().__init__(parent=None)
         QMainWindow.__init__(self, parent=parent)
-        self.setWindowFlags(self.windowFlags() & ~Qt.WindowStaysOnTopHint)
-        self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
+        self.setWindowFlags(self.windowFlags() & ~Qt.WindowType.WindowStaysOnTopHint)
+        self.setAttribute(QtCore.Qt.WidgetAttribute.WA_DeleteOnClose)
         self.setWindowTitle("WebScripts")
         self.main_tool = parent
-        
+
         self.tool_name = None
         self.tool_content = None
         self.mdata = {}
-        self.worker_script = None 
+        self.worker_script = None
 
         # widgets
         centralWidget = QWidget()
@@ -1235,32 +1301,38 @@ class WebScript(QMainWindow):
         self.line_url = QLineEdit()
 
         icon_search = QIcon()
-        icon_search.addPixmap(QPixmap(QICON_SEARCH), QIcon.Normal, QIcon.On)
-        icon_search.addPixmap(QPixmap(QICON_SEARCH), QIcon.Disabled, QIcon.On)
+        icon_search.addPixmap(QPixmap(QICON_SEARCH), QIcon.Mode.Normal, QIcon.State.On)
+        icon_search.addPixmap(QPixmap(QICON_SEARCH), QIcon.Mode.Disabled, QIcon.State.On)
 
         self.search_btn = QPushButton()
         self.search_btn.setMaximumWidth(35)
         self.search_btn.setIcon(QIcon(icon_search))
-        self.script_description = QTextEdit()
-        self.script_description.setPlaceholderText("Script description...") 
+        
+
+        self.script_description = QTextBrowser()
+        self.script_description.setPlaceholderText("Script description...")
         self.script_description.setReadOnly(True)
         self.script_description.setDisabled(True)
+        self.script_description.setOpenExternalLinks(True)
+        self.script_description.anchorClicked.connect(self.main_tool.on_link_clicked)
+        self.script_description.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+        self.script_description.setOpenLinks(False)
 
         self.save_btn = QPushButton("Save script")
         self.save_btn.setDisabled(True)
         self.pbar = QProgressBar()
-        self.pbar.setRange(0,1)
+        self.pbar.setRange(0, 1)
         self.pbar.setDisabled(True)
-        
-        self.layout.addWidget(self.label_url,          0, 0, 1, 1)
-        self.layout.addWidget(self.line_url,           0, 1, 1, 3)
-        self.layout.addWidget(self.search_btn,         0, 4, 1, 1)
+
+        self.layout.addWidget(self.label_url, 0, 0, 1, 1)
+        self.layout.addWidget(self.line_url, 0, 1, 1, 3)
+        self.layout.addWidget(self.search_btn, 0, 4, 1, 1)
         self.layout.addWidget(self.script_description, 1, 0, 1, 5)
-        self.layout.addWidget(self.save_btn,           2, 0, 1, 5)
-        self.layout.addWidget(self.pbar,               3, 0, 1, 5)
+        self.layout.addWidget(self.save_btn, 2, 0, 1, 5)
+        self.layout.addWidget(self.pbar, 3, 0, 1, 5)
 
         self.layout.setColumnStretch(1, 1)
-        
+
         centralWidget.setLayout(self.layout)
         self.setCentralWidget(centralWidget)
 
@@ -1269,30 +1341,29 @@ class WebScript(QMainWindow):
         self.save_btn.clicked.connect(self.save_script)
 
         self.show()
-    
+
+    def on_link_clicked(self, url):
+        if url.scheme() in ["http", "https", "www", "file"]:
+            QDesktopServices.openUrl(url)
 
     def showEvent(self, event):
         h_line = self.line_url.geometry().height()
         self.search_btn.setMinimumHeight(h_line)
-        super().showEvent(event) 
+        super().showEvent(event)
 
     def closeEvent(self, event):
         if self.worker_script:
             self.worker_script.deleteLater()
 
-
     def save_script(self):
         file_path = os.path.join(self.main_tool.wpath, self.tool_name)
-        desc_path = os.path.join(self.main_tool.wpath, 'descriptions.json')
-        new_tool_metadata = {self.tool_name.split('.')[0]: self.mdata}
 
         if self.tool_content:
             if os.path.isfile(file_path):
                 answer = self.warning_question(self.tool_name)
-                if answer == QMessageBox.Yes:
+                if answer == QMessageBox.StandardButton.Yes:
                     with open(file_path, "w", newline='') as f:
                         f.write(self.tool_content)
-                    # self.upd_descriptions_metadata(desc_path, new_tool_metadata)
                     self.main_tool.get_actions(self.main_tool.model)
                     self.warning_message("Script {} was saved successfully".format(self.tool_name))
                 else:
@@ -1300,10 +1371,8 @@ class WebScript(QMainWindow):
             else:
                 with open(file_path, "w", newline='') as f:
                     f.write(self.tool_content)
-                # self.upd_descriptions_metadata(desc_path, new_tool_metadata)
                 self.main_tool.get_actions(self.main_tool.model)
                 self.warning_message("Script {} was saved successfully".format(self.tool_name))
-                
 
     def upd_descriptions_metadata(self, desc_file, new_item):
         if not os.path.isfile(desc_file):
@@ -1314,23 +1383,20 @@ class WebScript(QMainWindow):
 
         descriptions.update(new_item)
 
-        with open(desc_file, "w", encoding = 'utf-8') as d:
+        with open(desc_file, "w", encoding='utf-8') as d:
             json.dump(descriptions, d, indent=4, ensure_ascii=False)
-        return 
+        return
 
-    
     def warning_question(self, f_name):
-        dlg = QMessageBox(self) 
+        dlg = QMessageBox(self)
         dlg.setWindowTitle('Warning')
         dlg.setText("File {} already exists.\nOverwrite?".format(f_name))
-        dlg.setStandardButtons(QMessageBox.No | QMessageBox.Yes)
-        return dlg.exec_()  
-    
+        dlg.setStandardButtons(QMessageBox.StandardButton.No | QMessageBox.StandardButton.Yes)
+        return dlg.exec()
 
     def warning_message(self, err_text):
         msg = QMessageBox()
         msg.warning(self, "Warning", err_text)
-
 
     def find_script(self):
         if self.worker_script:
@@ -1340,12 +1406,12 @@ class WebScript(QMainWindow):
             self.warning_message("Script name/URL is empty")
             return
 
-        self.pbar.setRange(0,0)
+        self.pbar.setRange(0, 0)
         self.pbar.setDisabled(False)
 
         if not url.startswith('http'):
             self.tool_name = '{}.py'.format(url)
-            url = r'https://gisworks.ru/qgis_tools/{}'.format(self.tool_name)
+            url = r'{}//{}'.format(self.main_tool.webscript_default_location_url, self.tool_name)
         elif '/' in url:
             last_item = url.split('/')[-1]
             last_item_py = '{}.py'.format(last_item.split('.')[0])
@@ -1356,39 +1422,41 @@ class WebScript(QMainWindow):
         self.worker_script.data_loaded.connect(self.on_data_loaded)
         self.worker_script.start()
         return
-    
+
     def on_data_loaded(self, script_bundle):
-        
+
         self.tool_content = script_bundle['script_content']
         self.mdata = script_bundle['script_metadata']
-        
+
         if self.tool_content:
             self.script_description.setDisabled(False)
             self.save_btn.setDisabled(False)
-            self.script_description.setPlainText(self.mdata.get('description', 'Script was found but without description'))
+            self.script_description.setHtml(
+                self.mdata.get('description', 'Script was found but without description'))
             self.script_description.setDisabled(False)
         else:
             self.script_description.setPlainText("Script wasn't found")
             self.script_description.setDisabled(True)
             self.save_btn.setDisabled(True)
-        
-        self.pbar.setRange(0,1)
+
+        self.pbar.setRange(0, 1)
         self.pbar.setDisabled(True)
         return
 
 
 class KolbaDockWidget(QDockWidget):
     closingPlugin = pyqtSignal()
+
     def __init__(self, parent=None):
         QDockWidget.__init__(self)
 
         # widget settings
-        self.setWindowFlags(Qt.Tool)
-        self.setAttribute(Qt.WA_DeleteOnClose)
+        self.setWindowFlags(Qt.WindowType.Tool)
+        self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         self.setWindowTitle("Kolba")
 
         # variables
-        self.overlay = None 
+        self.overlay = None
         self.kolba_version = kolba_version
         self.isFloating = False
 
@@ -1397,68 +1465,73 @@ class KolbaDockWidget(QDockWidget):
         size_dir = QSize(14, 14)
 
         # widgets
+        # 1 - titlebar 
         self.title_bar = QWidget(self)
         self.title_bar.setObjectName('CustomTitleBar')
-
         self.tb_layout = QGridLayout(self.title_bar)
         self.tb_layout.setContentsMargins(4, 0, 0, 0)
 
+        # 1.1 - version label
         self.lbl_kolba_version = AltLabelVersion('Kolba {}{}'.format('v', self.kolba_version))
         self.lbl_kolba_version.setFont(QFont('Arial', 7))
         self.lbl_kolba_version.setStyleSheet(global_stylesheet['label_version'])
 
+        # 1.2 - path button
         self.path_btn = QPushButton(self.title_bar)
         self.path_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.path_btn.setIcon(QIcon(QICON_FOLDER_ON))
         self.path_btn.setToolTip('On/off folder')
-        self.path_btn.setFixedSize(btn_size,btn_size)
+        self.path_btn.setFixedSize(btn_size, btn_size)
         self.path_btn.setIconSize(size_dir)
-        self.path_btn.setFocusPolicy(Qt.NoFocus) 
+        self.path_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.path_btn.setStyleSheet(global_stylesheet['path_button'])
 
-        self.path_list_btn = QPushButton(self.title_bar)
-        self.path_list_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        self.path_list_btn.setIcon(QIcon(QICON_PATH_LIST))
-        self.path_list_btn.setToolTip('Paths and other settings')
-        self.path_list_btn.setFixedSize(btn_size,btn_size)
-        self.path_list_btn.setIconSize(size_dir)
-        self.path_list_btn.setFocusPolicy(Qt.NoFocus) 
-        self.path_list_btn.setStyleSheet(global_stylesheet['path_list_button'])
+        # 1.3 - kolba settings
+        self.kolba_settings_btn = QPushButton(self.title_bar)
+        self.kolba_settings_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.kolba_settings_btn.setIcon(QIcon(QICON_PATH_LIST))
+        self.kolba_settings_btn.setToolTip('Paths and other settings')
+        self.kolba_settings_btn.setFixedSize(btn_size, btn_size)
+        self.kolba_settings_btn.setIconSize(size_dir)
+        self.kolba_settings_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.kolba_settings_btn.setStyleSheet(global_stylesheet['path_list_button'])
 
+        # 1.4 - pin/unpin button
         self.normalize_btn = QPushButton(self.title_bar)
         self.normalize_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        self.normalize_btn.setIcon(self.style().standardIcon(QStyle.SP_TitleBarNormalButton))
+        self.normalize_btn.setIcon(QIcon(QICON_PIN))
         self.normalize_btn.setToolTip("Pin/unpin Kolba")
-        self.normalize_btn.setFixedSize(btn_size,btn_size)
-        self.normalize_btn.setIconSize(size) 
-        self.normalize_btn.setFocusPolicy(Qt.NoFocus)
+        self.normalize_btn.setFixedSize(btn_size, btn_size)
+        self.normalize_btn.setIconSize(size)
+        self.normalize_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.normalize_btn.setStyleSheet(global_stylesheet['normalize_button'])
-        
+
+        # 1.5 - close button
         self.close_btn = QPushButton(self.title_bar)
         self.close_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        self.close_btn.setIcon(self.style().standardIcon(QStyle.SP_TitleBarCloseButton))
+        self.close_btn.setIcon(QIcon(QICON_CLOSE))
         self.close_btn.setToolTip("Close Kolba")
-        self.close_btn.setFixedSize(btn_size,btn_size)
+        self.close_btn.setFixedSize(btn_size, btn_size)
         self.close_btn.setIconSize(size)
-        self.close_btn.setFocusPolicy(Qt.NoFocus) 
+        self.close_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.close_btn.setStyleSheet(global_stylesheet['close_button'])
-       
-        self.tb_layout.addWidget(self.lbl_kolba_version,  0,1, Qt.AlignLeft)
-        self.tb_layout.addWidget(self.path_btn,           0,2, Qt.AlignRight)
-        self.tb_layout.addWidget(self.path_list_btn,      0,3, Qt.AlignRight)
-        self.tb_layout.addWidget(self.normalize_btn,      0,4, Qt.AlignRight)
-        self.tb_layout.addWidget(self.close_btn,          0,5, Qt.AlignRight)
+
+        # 1.6 - put widgets above into titlebar
+        self.tb_layout.addWidget(self.lbl_kolba_version, 0, 1, Qt.AlignmentFlag.AlignLeft)
+        self.tb_layout.addWidget(self.path_btn, 0, 2, Qt.AlignmentFlag.AlignRight)
+        self.tb_layout.addWidget(self.kolba_settings_btn, 0, 3, Qt.AlignmentFlag.AlignRight)
+        self.tb_layout.addWidget(self.normalize_btn, 0, 4, Qt.AlignmentFlag.AlignRight)
+        self.tb_layout.addWidget(self.close_btn, 0, 5, Qt.AlignmentFlag.AlignRight)
         self.tb_layout.setSpacing(2)
         self.tb_layout.setColumnStretch(1, 1)
-
         self.title_bar.setLayout(self.tb_layout)
         self.setTitleBarWidget(self.title_bar)
-        
+
         # actions
         self.close_btn.clicked.connect(self.close_btn_action)
         self.normalize_btn.clicked.connect(self.floating_set)
         self.path_btn.clicked.connect(self.hide_close_path)
-        self.path_list_btn.clicked.connect(self.path_config)
+        self.kolba_settings_btn.clicked.connect(self.path_config)
         self.topLevelChanged.connect(self.tl_change)
 
         # set widget appearance
@@ -1468,22 +1541,20 @@ class KolbaDockWidget(QDockWidget):
         if self.kolba_widget.theme:
             root, extension = os.path.splitext(self.kolba_widget.theme)
             local_theme_file = os.path.join(cfg_folder, 'theme{}'.format(extension))
-            self.overlay = ThemeWidget(self, overlay_image_path=local_theme_file, opacity = round(1.0 - round(self.kolba_widget.theme_opacity/100, 2), 2))
+            self.overlay = ThemeWidget(self, overlay_image_path=local_theme_file,
+                                       opacity=round(1.0 - round(self.kolba_widget.theme_opacity / 100, 2), 2))
             self.overlay.show()
-       
+
         if self.overlay:
             self.overlay.lower()
-
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
         if self.overlay:
             self.overlay.resize(self.size())  # adjust to frame
-        
 
     def path_config(self):
-        self.path_config_dialog = PathList(self)
-
+        self.path_config_dialog = KolbaSettings(self)
 
     def floating_set(self):
         if not self.isFloating:
@@ -1493,42 +1564,35 @@ class KolbaDockWidget(QDockWidget):
             self.isFloating = False
             self.setFloating(False)
 
-
     def hide_close_path(self):
         sender = self.sender()
         if self.path_enabled:
             sender.setIcon(QIcon(QICON_FOLDER_OFF))
-            self.path_list_btn.setDisabled(True)
-            self.kolba_widget.widget_buttons.hide()
+            self.kolba_widget.path_line.hide()
             self.path_enabled = False
-        else: 
+        else:
             sender.setIcon(QIcon(QICON_FOLDER_ON))
-            self.path_list_btn.setDisabled(False)
-            self.kolba_widget.widget_buttons.show()
+            self.kolba_widget.path_line.show()
             self.path_enabled = True
-
 
     def close_btn_action(self):
         self.close()
         iface.removeDockWidget(self)
-        
 
     def tl_change(self, state):
         if state:
             self.isFloating = True
-            self.setWindowFlags(Qt.Tool)
+            self.setWindowFlags(Qt.WindowType.Tool)
             self.show()
         else:
             self.isFloating = False
             self.title_bar.show()
-
 
     def closeEvent(self, event):
         # remove_docked_widgets
         self.write_new_cfg()
         self.closingPlugin.emit()
         event.accept()
-    
 
     def write_new_cfg(self):
         new_config = {
@@ -1536,16 +1600,19 @@ class KolbaDockWidget(QDockWidget):
             'saved_paths': self.kolba_widget.recent_paths,
             'paths_are_opened': self.path_enabled,
             'theme': self.kolba_widget.theme,
-            'theme_opacity': self.kolba_widget.theme_opacity
+            'theme_opacity': self.kolba_widget.theme_opacity,
+            'splitter_orientation': self.kolba_widget.tw_orientation,
+            'webscript_default_location_url': self.kolba_widget.webscript_default_location_url
         }
 
-        with open(cfg_file, "w", encoding = 'utf-8') as d:
+        with open(cfg_file, "w", encoding='utf-8') as d:
             json.dump(new_config, d, indent=4, ensure_ascii=False)
 
 
 class KolbaWidget(QWidget):
     """ Main widget tab tool
     """
+
     def __init__(self, parent):
         super().__init__()
         self.main_win = parent
@@ -1554,7 +1621,7 @@ class KolbaWidget(QWidget):
     def initUI(self):
         global global_stylesheet
         # configs
-        self.all_cfg, self.descriptions=read_cfg(cfg_file)  
+        self.all_cfg, self.descriptions = read_cfg(cfg_file)
         QgsApplication.instance().aboutToQuit.connect(self.main_win.write_new_cfg)
 
         self.wpath = self.all_cfg['path']
@@ -1562,7 +1629,9 @@ class KolbaWidget(QWidget):
         self.path_enabled = self.all_cfg.get('paths_are_opened', True)
         self.theme = self.all_cfg.get('theme', False)
         self.theme_opacity = self.all_cfg.get('theme_opacity', 0.0)
-        self.current_version = None 
+        self.tw_orientation = self.all_cfg.get('splitter_orientation', "Horizontal")
+        self.webscript_default_location_url = self.all_cfg.get('webscript_default_location_url', "https://gisworks.ru/qgis_tools")
+        self.current_version = None
         self.webscript_content = None
         self.webscript_metadata = None
 
@@ -1572,16 +1641,15 @@ class KolbaWidget(QWidget):
             global_stylesheet = kolba_no_theme
 
         # widgets
-
-        # path line
+        # 1 - path line
         self.path_line = ScriptPath(self)
         self.path_line.setPlaceholderText('path to scripts...')
         self.path_line.setText(self.wpath)
         self.menu = QMenu(self)
-        
-        # scripts list viewer
+
+        # 2 - scripts list viewer
         self.dataView = HoverButtonTreeView(self)
-        self.dataView.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.dataView.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.dataView.setRootIsDecorated(False)
         self.dataView.doubleClicked.connect(self.run_action)
         self.dataView.setStyleSheet(global_stylesheet['data_view'])
@@ -1590,85 +1658,68 @@ class KolbaWidget(QWidget):
         self.dataView.setModel(self.model)
         self.dataView.header().hide()
 
-        # description area
+        # 3 - script description and upd webscript widget stack
+        self.right_side_widget = QWidget()
+        self.rs_vbox = QVBoxLayout()
+        self.rs_vbox.setContentsMargins(0, 0, 0, 0)
+
+        # 3.1 - description area
         self.description_area = QTextBrowser()
         self.description_area.setReadOnly(True)
         self.description_area.setOpenExternalLinks(True)
         self.description_area.anchorClicked.connect(self.on_link_clicked)
-        self.description_area.setAlignment(Qt.AlignLeft | Qt.AlignTop)
-        self.description_area.setOpenLinks(False) 
+        self.description_area.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+        self.description_area.setOpenLinks(False)
         self.description_area.setStyleSheet(global_stylesheet['description_area'])
 
+        # 3.2 - update web script
         self.upd_webscript_button = QPushButton("Update tool")
-        self.upd_webscript_button.setStyleSheet("background-color : #cedec5") 
+        self.upd_webscript_button.setStyleSheet("background-color : #cedec5")
         self.upd_webscript_button.hide()
 
-        self.right_side_widget = QWidget()
-        
-        self.rs_vbox = QVBoxLayout()
-        self.rs_vbox.setContentsMargins(0,0,0,0)
         self.rs_vbox.addWidget(self.description_area)
         self.rs_vbox.addWidget(self.upd_webscript_button)
         self.right_side_widget.setLayout(self.rs_vbox)
 
-        # running button (kind of deprecated but still can be used)
-        self.btn_run = QPushButton()
-        self.btn_run.setIcon(self.style().standardIcon(QStyle.SP_MediaPlay))
-        self.btn_run.setStyleSheet(global_stylesheet['run_button'])
-
-        # layout settings
-        h_layout = QVBoxLayout(self) # main layout for all widgets
-        self.widget_buttons = QWidget(self)
-        self.widget_buttons.setContentsMargins(0,0,0,0)
-
-        buttons_layout = QHBoxLayout(self.widget_buttons) # layout for path settings
-        buttons_layout.setContentsMargins(0,0,0,0)
-        content_layout = QHBoxLayout(self) # layout for scripts, descriptions and run button
-
-        # splitter zone   
+        # 3.4 - splitter zone   
         self.splitter_body = QSplitter()
+        self.splitter_body.setOrientation(Qt.Orientation.Horizontal if self.tw_orientation =='Horizontal' else Qt.Orientation.Vertical)
         self.splitter_body.addWidget(self.dataView)
         self.splitter_body.addWidget(self.right_side_widget)
         self.splitter_body.setSizes([200, 200])
         self.splitter_body.setCollapsible(self.splitter_body.indexOf(self.dataView), False)
         self.splitter_body.setCollapsible(self.splitter_body.indexOf(self.right_side_widget), False)
-        
-        self.separator = QFrame()
-        self.separator.setFrameShape(QFrame.VLine)
-        self.separator.setFrameShadow(QFrame.Sunken)
 
-        self.separator.setStyleSheet("""QFrame{
-            background: transparent; 
-            border-right: 1px groove silver;
-        }""")
-       
-        buttons_layout.addWidget(self.path_line, 1)
-        buttons_layout.addStretch()
-
-        # completing data layout
+        # 3.5 - completing data layout
         self.frame_content = QFrame()
+        content_layout = QHBoxLayout(self)  # layout for scripts, descriptions and run button
         content_layout.addWidget(self.splitter_body, 0)
         content_layout.setContentsMargins(0, 0, 0, 0)
         self.frame_content.setLayout(content_layout)
 
-        # putting some layouts and widgets into main layout
-        h_layout.setContentsMargins(5,3,5,5)
-        h_layout.addWidget(self.widget_buttons)
-        h_layout.setAlignment(Qt.AlignTop)
+        # 4 - running button (a kind of deprecated but still can be used)
+        self.btn_run = QPushButton()
+        self.btn_run.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay))
+        self.btn_run.setStyleSheet(global_stylesheet['run_button'])
+
+        # 5 - layout settings
+        h_layout = QVBoxLayout(self)  # main layout for all widgets
+        h_layout.setContentsMargins(5, 3, 5, 5)
+        h_layout.addWidget(self.path_line)
+        h_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         h_layout.addWidget(self.frame_content, stretch=1)
         h_layout.addWidget(self.btn_run)
         h_layout.setStretchFactor(content_layout, 2)
 
+        # check if path is enabled
         if self.path_enabled:
             self.main_win.path_btn.setIcon(QIcon(QICON_FOLDER_ON))
-            self.main_win.path_list_btn.setDisabled(False)
-            self.widget_buttons.show()
             self.main_win.path_enabled = True
+            self.path_line.show()
         else:
             self.main_win.path_btn.setIcon(QIcon(QICON_FOLDER_OFF))
-            self.main_win.path_list_btn.setDisabled(True)
-            self.widget_buttons.hide()
             self.main_win.path_enabled = False
+            self.path_line.hide()
 
         # actions
         self.path_line.cb_refresh.clicked.connect(lambda: self.get_actions(self.model))
@@ -1678,39 +1729,38 @@ class KolbaWidget(QWidget):
         self.dataView.clicked.connect(self.get_description)
         self.path_line.returnPressed.connect(lambda: self.get_actions(self.model))
         self.path_line.cb_open.clicked.connect(self.show_menu)
-        self.path_line.cb_open.setToolButtonStyle(Qt.ToolButtonIconOnly)
+        self.path_line.cb_open.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
         self.upd_webscript_button.clicked.connect(self.update_webscript)
 
-        self.add_recent_paths()        
+        # autorun functions
+        self.add_recent_paths()
         self.get_actions(self.model)
         self.dataView.installEventFilter(self)
-    
 
     def on_link_clicked(self, url):
         if url.scheme() in ["http", "https", "www", "file"]:
-            QDesktopServices.openUrl(url)            
+            QDesktopServices.openUrl(url)
 
-    
     def update_webscript(self):
         selected_data = self.dataView.selectedIndexes()
         script_name = selected_data[0].data()
-        
+
         if self.webscript_content and script_name:
             script_path = os.path.join(self.wpath, f'{script_name}.py')
             desc_file_path = os.path.join(self.wpath, f'descriptions.json')
             if os.path.isfile(script_path):
                 answer = self.warning_question(script_name)
-                if answer == QMessageBox.Yes:
+                if answer == QMessageBox.StandardButton.Yes:
                     with open(script_path, "w", newline='') as f:
                         f.write(self.webscript_content)
-                    
-                    self.upd_descriptions_metadata(desc_file_path, {script_name:self.webscript_metadata})
+
+                    self.upd_descriptions_metadata(desc_file_path, {script_name: self.webscript_metadata})
                     self.warning_message("Script is updated")
-                    
+
                     self.upd_webscript_button.hide()
                     self.get_actions(self.model)
-        return 
-    
+        return
+
     def upd_descriptions_metadata(self, desc_file, new_item):
         if not os.path.isfile(desc_file):
             descriptions = {}
@@ -1720,48 +1770,49 @@ class KolbaWidget(QWidget):
 
         descriptions.update(new_item)
 
-        with open(desc_file, "w", encoding = 'utf-8') as d:
+        with open(desc_file, "w", encoding='utf-8') as d:
             json.dump(descriptions, d, indent=4, ensure_ascii=False)
-        return 
-    
-    
+        return
+
     def warning_question(self, f_name):
-        dlg = QMessageBox(self) 
+        dlg = QMessageBox(self)
         dlg.setWindowTitle('Warning')
         dlg.setText("Script {}.py will be updated.\nProceed?".format(f_name))
-        dlg.setStandardButtons(QMessageBox.No | QMessageBox.Yes)
-        return dlg.exec_()  
-
+        dlg.setStandardButtons(QMessageBox.StandardButton.No | QMessageBox.StandardButton.Yes)
+        return dlg.exec()
 
     def get_web_script(self):
+        # print(self.wpath, os.path.isdir(self.wpath), is_writable(self.wpath))
+        if not self.wpath or not os.path.isdir(self.wpath) or not is_writable(self.wpath):
+            self.warning_message('Define script path first.\nThe current one is wrong/empty/protected from writing.')
+            return
         self.web_script_get = WebScript(self)
 
-        
     def add_recent_paths(self):
         for action in self.menu.actions():
             self.menu.removeAction(action)
         for item in self.recent_paths:
-            action = self.menu.addAction(os.path.abspath(item))
+            action = self.menu.addAction(os.path.realpath(item))
             action.triggered.connect(lambda ch, act=action: self.set_path(act))
-
 
     def set_path(self, action):
         path = action.text()
-        self.path_line.setText(os.path.abspath(path))
+        self.path_line.setText(os.path.realpath(path))
         self.get_actions(self.model)
         self.description_area.setHtml('<b></b>')
-
 
     def show_menu(self):
         global_pos = self.path_line.cb_open.mapToGlobal(QtCore.QPoint(0, 15))
         self.menu.popup(global_pos)
-
 
     def get_description(self):
         self.upd_webscript_button.hide()
         selected_data = self.dataView.selectedIndexes()
         script_name = selected_data[0].data()
         script_path = os.path.join(self.wpath, "{}.py".format(script_name))
+        if not os.path.isfile(script_path):
+            self.warning_message("Script file path is wrong")
+            return
 
         with open(script_path, 'r') as in_file:
             script_content = in_file.read()
@@ -1769,7 +1820,7 @@ class KolbaWidget(QWidget):
         if not descr:
             descr = self.descriptions.get(script_name, {})
 
-        self.current_version = None 
+        self.current_version = None
         self.webscript_content = None
         if type(descr) == str:
             self.description_area.setHtml('<b>Description</b>: {}'.format(self.descriptions.get(script_name, descr)))
@@ -1780,77 +1831,83 @@ class KolbaWidget(QWidget):
             author = descr.get('author', '-')
             author_mail = descr.get('author_mail', '-')
             original_url = descr.get('original_url', '-')
-            
-            self.current_version = version 
+
+            self.current_version = version
             description_element = '<b>Description</b>: {}'.format(description_text)
             version_element = '<b>Version</b>: {}'.format(version)
-            if reference!='-':
+            if reference != '-':
                 reference_element = '<b>Reference</b>: <a href="{0}" target="_blank">{0}</a>'.format(reference)
             else:
                 reference_element = '<b>Reference</b>: {}</a>'.format(reference)
 
-            if (author or author_mail) and (author!=author_mail!='-'):
+            if (author or author_mail) and (author != author_mail != '-'):
                 author_element = "<span>{} ({})</span>".format(author, author_mail)
             else:
                 author_element = "-"
 
             html_txt = ''
-            html_txt+= description_element
-            html_txt+='<br></br><br></br>{}'.format(version_element)
-            html_txt+='<br></br><br></br><b>Author: </b>{}'.format(author_element)
-            html_txt+='<br></br><br></br>{}'.format(reference_element)
+            html_txt += description_element
+            html_txt += '<br></br><br></br>{}'.format(version_element)
+            html_txt += '<br></br><br></br><b>Author: </b>{}'.format(author_element)
+            html_txt += '<br></br><br></br>{}'.format(reference_element)
 
             self.description_area.setHtml(html_txt)
 
-            if original_url!='-':
-                self.worker_version_check = WebScriptCheck(original_url)
-                self.worker_version_check.data_loaded.connect(self.on_data_loaded)
-                self.worker_version_check.start()
-
+            if original_url != '-':
+                if is_url(original_url):
+                    self.worker_version_check = WebScriptCheck(original_url)
+                    self.worker_version_check.data_loaded.connect(self.on_data_loaded)
+                    self.worker_version_check.start()
 
     def on_data_loaded(self, script_data):
-        self.webscript_content = script_data['script_content']
-        self.webscript_metadata = script_data['script_metadata']
-        script_version = self.webscript_metadata.get('version')
-        
-        if self.current_version and script_version:
-            if self.current_version!=script_version:
-                self.upd_webscript_button.show()
-        else:
-            self.upd_webscript_button.hide()
-        
+        if script_data and type(script_data)==dict:
+            self.webscript_content = script_data.get('script_content', '')
+            self.webscript_metadata = script_data.get('script_metadata', {})
+            script_version = self.webscript_metadata.get('version', self.current_version)
+
+            if self.current_version and script_version:
+                if self.current_version != script_version:
+                    self.upd_webscript_button.show()
+            else:
+                self.upd_webscript_button.hide()
 
     def load_folder(self):
         dialog = QFileDialog()
-        dialog.setFileMode(QFileDialog.Directory)
-        dialog.setOption(QFileDialog.DontUseNativeDialog) 
-        default_path = QStandardPaths.writableLocation(QStandardPaths.DocumentsLocation)
+        dialog.setFileMode(QFileDialog.FileMode.Directory)
+        dialog.setOption(QFileDialog.Option.DontUseNativeDialog)
+        default_path = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DocumentsLocation)
         dialog.setDirectory(default_path)
 
         result = dialog.getExistingDirectoryUrl(self, "Select a folder with scripts")
         if result:
-            selected_path = result.path().strip(string.punctuation)
+            selected_path = result.toLocalFile().strip()
             if selected_path:
-                self.wpath = os.path.abspath(selected_path)
+                self.wpath = os.path.realpath(selected_path)
             else:
                 return
             self.path_line.setText(self.wpath)
             self.get_actions(self.model)
             self.description_area.setHtml('<b></b>')
 
-    
     def get_actions(self, model):
         current_path = self.path_line.text()
 
         # notify when path is wrong 
-        if not os.path.isdir(current_path):
+        if not os.path.isdir(current_path) and current_path:
             self.warning_message('Path is invalid')
-            return 
-        self.wpath = os.path.abspath(current_path)
-        
+            return
+        if current_path:
+            self.wpath = os.path.realpath(current_path)
+        else:
+            self.wpath = ''
+            model.setRowCount(0)
+            self.dataView.setColumnHidden(1, True)
+            self.description_area.setHtml('<b></b>')
+            return
+
         # when user manually selects or types path, it goes to 'recent'
         if self.wpath not in self.recent_paths:
-            if len(self.recent_paths)==50:
+            if len(self.recent_paths) == 50:
                 del self.recent_paths[49]
             self.recent_paths.insert(0, self.wpath)
         self.add_recent_paths()
@@ -1869,7 +1926,7 @@ class KolbaWidget(QWidget):
                     item1 = QStandardItem(action_name.lower())
                     model.insertRow(0)
                     model.setItem(0, 0, item1)
-                   
+
         self.dataView.setColumnHidden(1, True)
         self.description_area.setHtml('<b></b>')
         file_descriptions = os.path.join(current_path, 'descriptions.json')
@@ -1878,8 +1935,7 @@ class KolbaWidget(QWidget):
                 self.descriptions = json.load(fp)
         else:
             self.descriptions = {}
-    
-    
+
     def run_action(self):
         selected_data = self.dataView.selectedIndexes()
         if selected_data:
@@ -1898,19 +1954,17 @@ class KolbaWidget(QWidget):
         else:
             self.warning_message("Select a script and then double-click it or push ▶︎ button")
 
-
     def run_script(self, script, mini_app=False):
         script_path = os.path.join(self.wpath, "{}.py".format(script))
         script_folder = self.wpath
 
         try:
             with open('{}'.format(script_path).encode('utf-8'), 'r') as f:
-                exec(f.read(), {'wrapper': self, 'project_folder': script_folder, 'script_name':script})
+                exec(f.read(), {'wrapper': self, 'project_folder': script_folder, 'script_name': script})
         except Exception as e:
             print(e)
             self.warning_message("Error in script")
             iface.kolba_plugin[script] = None
-
 
     def warning_message(self, err_text):
         msg = QMessageBox()
@@ -1923,19 +1977,19 @@ class WebScriptCheck(QThread):
     def __init__(self, script_url):
         self.script_url = script_url
         super().__init__()
-    
+
     def run(self):
         data = {'script_content': None, 'script_metadata': {}}
         with requests.Session() as session:
             response = session.get(self.script_url, verify=False, timeout=5)
-            if response.status_code==200:
+            if response.status_code == 200:
                 metadata = extract_metadata(response.text)
                 data['script_content'] = response.text
                 data['script_metadata'] = metadata
         self.data_loaded.emit(data)
-    
+
 
 #dockwidget = KolbaDockWidget(None)
 #dockwidget.setFloating(False)
-#iface.addDockWidget(Qt.RightDockWidgetArea, dockwidget)
-#iface.mainWindow().resizeDocks({dockwidget}, {600}, Qt.Vertical)
+#iface.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, dockwidget)
+#iface.mainWindow().resizeDocks({dockwidget}, {600}, Qt.Orientation.Vertical)

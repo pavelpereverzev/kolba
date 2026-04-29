@@ -21,22 +21,21 @@
  *                                                                         *
  ***************************************************************************/
 """
-from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication, Qt
+from qgis.PyQt.QtCore import QTranslator, QCoreApplication, Qt
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction
+
 from qgis._core import QgsApplication
-from .resources import *
 
 from .kolba_dockwidget import KolbaDockWidget
 import os.path
-import json 
+import json
 
 folder_parent = QgsApplication.qgisSettingsDirPath()
+kolba_dir = os.path.join(
+    folder_parent, 'python', 'plugins', 'kolba')  # by alex_deshev
 cfg_folder = os.path.join(folder_parent, 'kolba_settings')
 cfg_file = os.path.join(cfg_folder, 'kolba_cfg.json')
-
-
-default_scripts_path = r'K:\gis\om'
 
 
 class kolba:
@@ -57,8 +56,9 @@ class kolba:
         self.plugin_dir = os.path.dirname(__file__)
 
         # initialize locale
-        # locale = QSettings().value('locale/userLocale')[0:2] # replaced with 'ru' by default due to errors 
-        locale = 'ru'
+        # locale = QSettings().value('locale/userLocale')[0:2]
+        # replaced with 'en' by default due to errors
+        locale = 'en'
         locale_path = os.path.join(
             self.plugin_dir,
             'i18n',
@@ -79,34 +79,30 @@ class kolba:
         self.dockwidget = None
         self.iface.kolba_plugin = {}
 
-
     def tr(self, message):
         """Get the translation for a string using Qt translation API.
-
         We implement this ourselves since we do not inherit QObject.
-
         :param message: String for translation.
         :type message: str, QString
-
         :returns: Translated version of message.
         :rtype: QString
         """
         # noinspection PyTypeChecker,PyArgumentList,PyCallByClass
         return QCoreApplication.translate('kolba', message)
 
-
     def add_action(
-        self,
-        icon_path,
-        text,
-        callback,
-        checkable=False,
-        enabled_flag=True,
-        add_to_menu=False,
-        add_to_toolbar=True,
-        status_tip=None,
-        whats_this=None,
-        parent=None):
+            self,
+            icon_path,
+            text,
+            callback,
+            checkable=False,
+            enabled_flag=True,
+            add_to_menu=False,
+            add_to_toolbar=True,
+            status_tip=None,
+            whats_this=None,
+            parent=None
+    ):
         """Add a toolbar icon to the toolbar.
 
         :param icon_path: Path to the icon for this action. Can be a resource
@@ -170,17 +166,20 @@ class kolba:
 
         return action
 
-
     def initGui(self):
         """Create the menu entries and toolbar icons inside the QGIS GUI."""
-        icon_path = QIcon(os.path.join(self.plugin_dir, "icon.png"))
+        icon_path = os.path.join(self.plugin_dir, "icon.png")
         self.iconAction = self.add_action(
             icon_path,
             text=self.tr(u'Kolba'),
             callback=self.run,
             checkable=True,
             parent=self.iface.mainWindow())
-
+        if os.path.isfile(cfg_file):
+            with open(cfg_file, 'r') as fp:
+                data = json.load(fp)
+                if data.get('plugin_is_opened', False):
+                    self.iconAction.trigger()
 
     def onClosePlugin(self):
         """Cleanup necessary items here when plugin dockwidget is closed"""
@@ -194,7 +193,6 @@ class kolba:
         self.pluginIsActive = False
         self.iconAction.setChecked(False)
 
-
     def unload(self):
         """Removes the plugin menu item and icon from QGIS GUI."""
         for action in self.actions:
@@ -203,16 +201,21 @@ class kolba:
             self.iface.removeToolBarIcon(action)
         del self.toolbar
 
-
     def run(self):
         if not self.pluginIsActive:
             self.pluginIsActive = True
-            if self.dockwidget == None:
+            if not self.dockwidget:
                 self.dockwidget = KolbaDockWidget(None)
             self.dockwidget.setFloating(False)
             self.dockwidget.closingPlugin.connect(self.onClosePlugin)
-            self.iface.addDockWidget(Qt.RightDockWidgetArea, self.dockwidget)
-            self.iface.mainWindow().resizeDocks({self.dockwidget}, {600}, Qt.Vertical)
-    
+            self.iface.addDockWidget(
+                Qt.DockWidgetArea.RightDockWidgetArea,
+                self.dockwidget
+            )
+            self.iface.mainWindow().resizeDocks(
+                {self.dockwidget},
+                {600},
+                Qt.Orientation.Vertical
+            )
         else:
             self.dockwidget.close()

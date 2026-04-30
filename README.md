@@ -112,7 +112,8 @@ app = TestWidget()
 
 Video guide provided below:
 
-https://github.com/pavelpereverzev/easyPlugin/assets/25682040/67390440-8ca9-4c46-9284-0677c74a3be9
+https://github.com/pavelpereverzev/kolba/assets/4b88a18d-79ed-4a86-a5da-9d8a52472652
+
 
 
 ## Web Scripts

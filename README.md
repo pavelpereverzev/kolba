@@ -1,8 +1,15 @@
 [![en](https://img.shields.io/badge/lang-ru-red.svg)](https://github.com/pavelpereverzev/kolba/blob/main/README.ru.md) 
 
 # Kolba
-![Table loook](https://gisworks.ru/qgis_tools/img/kolba_1_4.png)
-
+<p align="center">
+  <img src="https://gisworks.ru/qgis_tools/img/kolba_glow_2.svg" 
+       width="128">
+  
+</p>
+<p align="center">
+<img src="https://gisworks.ru/qgis_tools/img/kolba_window.png" 
+       width="353">
+</p>
 A tool made for running and testing Python script files in QGIS. 
 
 ## Concept

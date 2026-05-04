@@ -1,7 +1,11 @@
 [![en](https://img.shields.io/badge/lang-en-red.svg)](https://github.com/pavelpereverzev/kolba/blob/main/README.md) 
 
 # Колба
-![Table loook](https://gisworks.ru/qgis_tools/img/kolba_1_4.png)
+
+<p align="center">
+<img src="https://gisworks.ru/qgis_tools/img/kolba_window.png" 
+       width="auto">
+</p>
 
 Инструмент для запуска и тестирования Python-скриптов в QGIS.
 
@@ -189,3 +193,8 @@ class TestWidget(QWidget):
 Также можно установить `тему` — фоновое изображение (jpg/png/gif), с регулируемой прозрачностью.
 
 Начиная с версии 1.4, в настройках появился пункт  **WebScript default location**. Эта настройка представляет собой URL-адрес корневой папки скриптов, которые можно загрузить из интернета. URL-адрес по умолчанию — `https://gisworks.ru/qgis_tools`, что означает, что если пользователь введет `my_widget` в поиск WebScript, последний перейдет по пути `https://gisworks.ru/qgis_tools/my_widget.py`.
+
+<p align="center">
+  <img src="https://gisworks.ru/qgis_tools/img/kolba_glow_2.svg" 
+       width="256">
+</p>

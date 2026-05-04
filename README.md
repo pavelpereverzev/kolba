@@ -1,15 +1,12 @@
 [![en](https://img.shields.io/badge/lang-ru-red.svg)](https://github.com/pavelpereverzev/kolba/blob/main/README.ru.md) 
 
 # Kolba
-<p align="center">
-  <img src="https://gisworks.ru/qgis_tools/img/kolba_glow_2.svg" 
-       width="128">
-  
-</p>
+
 <p align="center">
 <img src="https://gisworks.ru/qgis_tools/img/kolba_window.png" 
-       width="353">
+       width="auto">
 </p>
+
 A tool made for running and testing Python script files in QGIS. 
 
 ## Concept
@@ -202,5 +199,9 @@ Also a theme can be set by using a background image for Kolba widget. User shoul
 
 Since version 1.4 there is a **WebScript default location**. This setting is a URL to the root folder of scripts that can be downloaded from the internet. Default URL is `https://gisworks.ru/qgis_tools` which means that if user type `my_widget` in WebScript search tool, it will go to `https://gisworks.ru/qgis_tools/my_widget.py` path.
 
-
+<p align="center">
+  <img src="https://gisworks.ru/qgis_tools/img/kolba_glow_2.svg" 
+       width="256">
+  
+</p>
 

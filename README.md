@@ -11,11 +11,17 @@ A tool made for running and testing Python script files in QGIS.
 
 ## Concept
 
+Kolba is a lightweight alternative to a traditional QGIS plugin repository.  
+Instead of packaging and updating plugins manually, it allows users to run Python scripts directly from a local/shared folder inside QGIS. This makes bug fixes and updates much faster: once script is changed, all users automatically work with the latest version without reinstalling or updating anything.
+
+<details>
+       <summary>Project background</summary>
 This tool is an alternative to maintaining a local QGIS plugin repository. Previously, I developed plugins for my colleagues and distributed them through a shared repository on our office network. The plugins were used actively, which naturally led to frequent bug reports. The support workflow became burdensome: collecting feedback, fixing issues, repackaging the plugin into a ZIP file, updating the repository, and notifying everyone about the new version. The update notifications, in particular, were inconvenient for users.
 
 To simplify this process, I created Kolba — a wrapper widget for running Python scripts directly in QGIS. It acts like a file browser that displays only Python scripts and allows users to execute them by doubleclick. All scripts are stored in a shared network folder, so if someone reports an issue, I simply fix the script in that folder. Users do not need to update anything — they just run specific script again and immediately get the latest version.
 
 This approach has been well-received by colleagues due to its simplicity and minimal maintenance effort.
+</details>
 
 ## Interface
 

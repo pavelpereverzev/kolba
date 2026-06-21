@@ -27,10 +27,13 @@ This approach has been well-received by colleagues due to its simplicity and min
 
 The interface of Kolba is simple for understanding: on the top there is a control panel and path to folder with script files. 
 Path line contains buttons on the right side:
-* ![Table loook](https://gisworks.ru/qgis_tools/img/line_dropdown.png) - dropdown list of saved paths
-* ![Table loook](https://gisworks.ru/qgis_tools/img/line_refresh.png) - updates script list by scanning current path 
-* ![Table loook](https://gisworks.ru/qgis_tools/img/line_webscript.png) - loader of scripts from the internet
-* ![Table loook](https://gisworks.ru/qgis_tools/img/line_folder_select.png) - folder selector
+* ![Table look](https://gisworks.ru/qgis_tools/img/line_dropdown.png) - dropdown list of saved paths
+* ![Table look](https://gisworks.ru/qgis_tools/img/line_refresh.png) - updates script list by scanning current path 
+* ![Table look](https://gisworks.ru/qgis_tools/img/line_webscript.png) - loader of scripts from the internet
+* ![Table look](https://gisworks.ru/qgis_tools/img/line_folder_select.png) - folder selector
+
+
+Bookmarks - appeared in v1.5 and provide a quick switch between paths saved in Kolba settings.
 
 Below path line there are two sections: the left is script list, the right is a window with description when script is selected.
 In addition to two standard icons (pin/unpin, close widget) there are another two buttons:
@@ -128,19 +131,22 @@ https://github.com/pavelpereverzev/kolba/assets/4b88a18d-79ed-4a86-a5da-9d8a5247
 
 ## Web Scripts
 
-Since version 1.2 scripts can be downloaded from web URLs. Find a ![Table loook](https://gisworks.ru/qgis_tools/img/line_webscript.png) button in Kolba path line and press it.
-In `WebScripts` window enter the direct URL to Python script file. 
+Since v1.2 scripts can be downloaded from web URLs. Find a ![Table loook](https://gisworks.ru/qgis_tools/img/line_webscript.png) button in Kolba path line and press it.
+`WebScripts` widget provide loading scripts from direct URL and get custom sets of scripts from a URL specified in **Settings**.
+To load a specific script enter the direct URL to Python script file in **Custom script** line.
 For example, `https://gisworks.ru/qgis_tools/my_widget.py`
 
-![Table loook](https://gisworks.ru/qgis_tools/img/kolba_webscript.png)
+![Table look](https://gisworks.ru/qgis_tools/img/kolba_webscript.png)
 
-After that, press search button. Some time later there will be clear if script is found or not.
+After that, press search button. After a moment widget will tell if script is found or not.
 If URL is valid script can be saved with a button `Save`. After that script will be appeared in a list of Kolba.
+
+**Script set** is a list of script URLs which is taken from another URL. Instead of searching each script manually user can select specific script and download it.
 
 ## Descriptions
 
 The right part of Kolba window is used to show a description of selected script. 
-Since version 1.2 all description data stores in script file at the beginning.
+Since v1.2 all description data stores in script file at the beginning.
 Description contain rows like:
 * **description** - description itself, since version 1.4 supports HTML syntax
 * **version** - number of version (needed for updates check)
@@ -197,13 +203,69 @@ Script file will not run right after download is completed so you will have a ti
 
 ## Settings
 
-Kolba settings contains detailed settings of paths which user can manage: add new folders, delete another, change order of them, set WebScript root folder. 
+Kolba settings contains customizable settings of plugin:
 
-![Table loook](https://gisworks.ru/qgis_tools/img/kolba_settings.png)
+- paths manager: add, delete, edit folder paths, change their order
+- bookmarks manager: set path as buttons in main widget for quick switch
+- WebScript root folder and path to script set
+- import/export kolba paths settings
+- interface settings: splitter orientation and theme 
 
-Also a theme can be set by using a background image for Kolba widget. User should check a `Theme` checkbox and then select an image which can be jpg/png/gif format. Transparency is also can be set.
+![Table look](https://gisworks.ru/qgis_tools/img/kolba_settings.png)
 
-Since version 1.4 there is a **WebScript default location**. This setting is a URL to the root folder of scripts that can be downloaded from the internet. Default URL is `https://gisworks.ru/qgis_tools` which means that if user type `my_widget` in WebScript search tool, it will go to `https://gisworks.ru/qgis_tools/my_widget.py` path.
+**Paths manager** allows to add, delete or edit paths in plugin. For example you keep stable versions of tools in specific folder while some work-in-process tools have to be kept in another folder. By adding another folder user can switch between folders in main widget's dropdown list. Re-ordering paths is also here: drag and drop path lines to change an order of them.
+
+**Bookmarks manager** provides keeping certain path as buttons in main widget. In order not to open dropdown list from main widget's line, user can set folders as bookmark buttons and they appear in main widget between path line and content blocks. User can add a new path bookmark or use existing paths from settings list to make bookmarks from them.
+
+![Table look](https://gisworks.ru/qgis_tools/img/kolba_bookmarks.png)
+
+**WebScript default location** is a URL to the root folder of scripts which can be downloaded from the internet. Default URL is `https://gisworks.ru/qgis_tools` which means that if user type `my_widget` in WebScript search tool, it will go to `https://gisworks.ru/qgis_tools/my_widget.py` path.
+
+**WebScript custom set URL** is a link to json file which is a list of tools that can be presented in **Script set** section. Default URL is `https://gisworks.ru/kolba_set.json` and the json structure should look like:
+```
+[
+    {"id": "script_name", "url": "https://some_site.com/script_name.py"},
+    {"id": "another_script_name", "url": "https://some_another_site.com/another_script_name.py"}
+]
+```
+
+**Import/Export config** are buttons made for saving current paths, bookmarks and WebScript setting into *.json config file, so user can save it and load on another computer. May be useful in team work for Kolba setting up.
+
+**Tools widget orientation** allows to modify a layout of script list and description widgets.
+
+**Theme** is an option to personalize user's Kolba. User can put an jpg/png image or gif animation as a background picture of the whole Kolba interface. Transparency is also can be set.
+
+
+![Table look](https://gisworks.ru/qgis_tools/img/kolba_theme.gif)
+
+## Changelog
+<details>
+  <summary>see updates</summary>
+
+  ### v1.4.1 
+  - code cleaning
+  - fixing bugs which were incompatible with modern QGIS plugin checks
+  
+  ### v1.4
+  - Qt6 support
+  - fixed crash on non-valid url of WebScript
+  - added WebScript default url setting
+  - WebScript description widget HTML support
+
+  ### v1.3
+  - fixed default writable path detection
+  - support fixes for Linux and MacOS
+  - interface updates (tools splitter widget orientation, removing unused buttons, actions fixing)
+  - partial code cleaning
+
+  ### v1.2.1
+  - fixing WebScript class signal crash caused by removing its instance
+
+  ### v1.2
+  - first public version of plugin
+  - making plugin as a separate tool from [easyPlugin]([https://google.com](https://github.com/pavelpereverzev/easyPlugin))
+</details>
+
 
 <p align="center">
   <img src="https://gisworks.ru/qgis_tools/img/kolba_glow_2.svg" 

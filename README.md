@@ -3,7 +3,7 @@
 # Kolba
 
 <p align="center">
-<img src="https://gisworks.ru/qgis_tools/img/kolba_window.png" 
+<img src="https://gisworks.ru/qgis_tools/img/kolba_window.png?new=true" 
        width="auto">
 </p>
 
@@ -131,12 +131,12 @@ https://github.com/pavelpereverzev/kolba/assets/4b88a18d-79ed-4a86-a5da-9d8a5247
 
 ## Web Scripts
 
-Since v1.2 scripts can be downloaded from web URLs. Find a ![Table loook](https://gisworks.ru/qgis_tools/img/line_webscript.png) button in Kolba path line and press it.
+Since v1.2 scripts can be downloaded from web URLs. Find a ![Table loook](https://gisworks.ru/qgis_tools/img/line_webscript.png?new=true) button in Kolba path line and press it.
 `WebScripts` widget provide loading scripts from direct URL and get custom sets of scripts from a URL specified in **Settings**.
 To load a specific script enter the direct URL to Python script file in **Custom script** line.
 For example, `https://gisworks.ru/qgis_tools/my_widget.py`
 
-![Table look](https://gisworks.ru/qgis_tools/img/kolba_webscript.png)
+![Table look](https://gisworks.ru/qgis_tools/img/kolba_webscript.png?new=true)
 
 After that, press search button. After a moment widget will tell if script is found or not.
 If URL is valid script can be saved with a button `Save`. After that script will be appeared in a list of Kolba.
@@ -211,7 +211,7 @@ Kolba settings contains customizable settings of plugin:
 - import/export kolba paths settings
 - interface settings: splitter orientation and theme 
 
-![Table look](https://gisworks.ru/qgis_tools/img/kolba_settings.png)
+![Table look](https://gisworks.ru/qgis_tools/img/kolba_settings.png?new=true)
 
 **Paths manager** allows to add, delete or edit paths in plugin. For example you keep stable versions of tools in specific folder while some work-in-process tools have to be kept in another folder. By adding another folder user can switch between folders in main widget's dropdown list. Re-ordering paths is also here: drag and drop path lines to change an order of them.
 

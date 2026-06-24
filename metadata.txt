@@ -7,7 +7,7 @@ name=Kolba
 qgisMinimumVersion=3.0
 qgisMaximumVersion=4.99
 description=Plugin for launching and managing custom QGIS tools
-version=1.4.1
+version=1.5
 author=Pavel Pereverzev
 email=pasha004@yandex.ru
 

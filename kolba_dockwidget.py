@@ -23,7 +23,7 @@ with a help of Plugin Builder: http://g-sherman.github.io/Qgis-Plugin-Builder/
 ******************************************************************************/
 """
 import os
-import string
+import subprocess
 import json
 from shutil import copyfile
 import requests
@@ -41,11 +41,11 @@ from qgis.PyQt.QtGui import *
 from qgis.PyQt.QtCore import *
 
 from qgis.PyQt.QtWidgets import (QWidget, QMainWindow, QDockWidget, QTreeView, QStyle, QGridLayout,
-                                 QToolButton, QMenu, QListWidget, QListWidgetItem, QSpinBox,
-                                 QFileDialog, QLineEdit, QLabel, QPushButton, QCheckBox, QProgressBar,
-                                 QSlider, QFrame, QTextBrowser, QSplitter, QMessageBox, QComboBox,
-                                 QHBoxLayout, QVBoxLayout, QGroupBox, QAbstractItemView,
-                                 QSizePolicy, QApplication, QGraphicsDropShadowEffect)
+                                 QToolButton, QMenu, QListWidget, QListWidgetItem, QSpinBox, QTreeWidget, QTreeWidgetItem,
+                                 QFileDialog, QLineEdit, QLabel, QPushButton, QCheckBox, QProgressBar, QTableWidget,
+                                 QSlider, QFrame, QTextBrowser, QSplitter, QMessageBox, QComboBox, QTableWidgetItem,
+                                 QHBoxLayout, QVBoxLayout, QGroupBox, QAbstractItemView, QScrollArea, QAction, QHeaderView,
+                                 QSizePolicy, QApplication, QGraphicsDropShadowEffect, QAbstractScrollArea)
 
 folder_parent = QgsApplication.qgisSettingsDirPath()
 kolba_dir = os.path.join(folder_parent, 'python', 'plugins', 'kolba')  # advice by alex_deshev
@@ -61,9 +61,12 @@ def is_writable(dir_path):
         return False
 
 
-kolba_version = "1.4.1"
+kolba_version = "1.5"
 kolba_updates = [
-    'a bit of code cleaning'
+    'bookmarks',
+    'custom scripts set url setting',
+    'import/export config',
+    'webscript search case sensitivity fix'
 ]
 
 default_scripts_path = str(Path.home() / "Documents")
@@ -91,294 +94,18 @@ default_config = {
     "theme": False,
     "theme_opacity": 0.0,
     "splitter_orientation": "Horizontal",
-    "webscript_default_location_url": "https://gisworks.ru/qgis_tools"
+    "webscript_default_location_url": "https://gisworks.ru/qgis_tools",
+    "webscript_custom_set": "https://gisworks.ru/kolba_set.json",
+    "bookmarks": {}
 }
 
-global_stylesheet = {
-    'label_version': """
-        QLabel{
-            background-color: transparent;
-            border: 0.5px outset gray;
-            margin-left:1px;
-            margin-right:2px;
-            margin-top:2px;
-            margin-bottom:2px;
-            border-radius: 4px;
-        }
-        QLabel:hover{
-            color: gray
-        }
-    """,
-    'label_version_btn': """
-        QLabel{
-            background-color: transparent;
-            border: 0.5px inset gray;
-            margin-left:1px;
-            margin-right:2px;
-            margin-top:2px;
-            margin-bottom:2px;
-            border-radius: 4px;
-        }
-    """,
-    'label_version_btn_clicked': """
-        QLabel{
-            background-color: transparent;
-            border: 0.5px outset gray;
-            margin-left:1px;
-            margin-right:2px;
-            margin-top:2px;
-            margin-bottom:2px;
-            border-radius: 4px;
-        }
-        QLabel:hover{
-            color: gray
-        }
-    """,
-    'path_button': """
-        QPushButton{
-            border:0px;
-        }
-        QPushButton:hover{
-            border: 1px solid gray;
-            border-radius: 4px;
-        }
-        QPushButton:pressed{
-            background-color: lightgray;
-            border: 1px solid gray;
-            border-radius: 4px;
-        }
-    """,
-    'path_list_button': """
-        QPushButton{
-            border:0px;
-        }
-        QPushButton:hover{
-            border: 1px solid gray;
-            border-radius: 4px;
-        }
-        QPushButton:pressed{
-            background-color: lightgray;
-            border: 1px solid gray;
-            border-radius: 4px;
-        }
-    """,
-    'normalize_button': """
-        QPushButton{
-            border:0px;
-        }
-        QPushButton:hover{
-            border: 1px solid gray;
-            border-radius: 4px;
-        }
-        QPushButton:pressed{
-            background-color: lightgray;
-            border: 1px solid gray;
-            border-radius: 4px;
-        }
-    """,
-    'close_button': """
-        QPushButton{
-            border:0px;
-        }
-        QPushButton:hover{
-            border: 1px solid gray;
-            border-radius: 4px;
-        }
-        QPushButton:pressed{
-            background-color: lightgray;
-            border: 1px solid gray;
-            border-radius: 4px;
-        }
-    """,
-    'data_view': """
-        QTreeView {
-            border: 1px solid #ababab;
-            border-radius: 4px;
-            background: rgba(255,255,255,150);
-        }
-        QTreeView::item{
-            color:black;
-            border: transparent;
-        }
-        QTreeView::item:hover {
-            background: lightgray;
-        }
-        QTreeView::item:selected {
-            color: black;
-        }
-        QTreeView::item:selected:active {
-            background: #bcbcbc;
-        }
-        QTreeView::item:selected:!active {
-            background: #bcbcbc;
-        }
-        QScrollBar:vertical { 
-            border: none;
-            background: #efefef;
-            width: 10px; 
-            margin: 0px 0px 0px 0px;
-            border-top-right-radius: 4px;
-            border-bottom-right-radius: 4px;
-        }
-        QScrollBar::handle:vertical {
-            background-color: lightgray; 
-            min-height: 5px;
-            border: none;
-            border-radius: 2px;
-            width: 4px;
-            margin: 2px 2px 2px 2px; 
-        }
-        QScrollBar::add-line:vertical {
-            background: transparent;
-            height: 0px;
-            subcontrol-position: bottom;
-            subcontrol-origin: margin;
-        }
-        QScrollBar::sub-line:vertical {
-            background: transparent;
-            height: 0 px;
-            subcontrol-position: top;
-            subcontrol-origin: margin;
-        }
-        QScrollBar:horizontal { 
-            border: none;
-            background: #efefef;
-            height: 10px; 
-            margin: 0px 0px 0px 0px;
-            border-top-right-radius: 4px;
-            border-bottom-right-radius: 4px;
-        }
-        QScrollBar::handle:horizontal {
-            background-color: lightgray; 
-            min-height: 5px;
-            border: none;
-            border-radius: 2px;
-            height: 4px;
-            margin: 2px 2px 2px 2px; 
-        }
-        QScrollBar::add-line:horizontal {
-            background: transparent;
-            width: 0px;
-            subcontrol-position: bottom;
-            subcontrol-origin: margin;
-        }
-        QScrollBar::sub-line:horizontal {
-            background: transparent;
-            width: 0 px;
-            subcontrol-position: top;
-            subcontrol-origin: margin;
-        }
-    """,
-    'description_area': """
-        QTextBrowser {
-            border: 1px solid #ababab;
-            border-radius: 4px;
-            background: rgba(255,255,255,150);
-            color: black
-        }
-        QScrollBar:vertical { 
-            border: none;
-            background: #efefef;
-            width: 10px; 
-            margin: 0px 0px 0px 0px;
-            border-top-right-radius: 4px;
-            border-bottom-right-radius: 4px;
-        }
-        QScrollBar::handle:vertical {
-            background-color: lightgray; 
-            min-height: 5px;
-            border: none;
-            border-radius: 2px;
-            width: 4px;
-            margin: 2px 2px 2px 2px; 
-        }
-        QScrollBar::add-line:vertical {
-            background: transparent;
-            height: 0px;
-            subcontrol-position: bottom;
-            subcontrol-origin: margin;
-        }
-        QScrollBar::sub-line:vertical {
-            background: transparent;
-            height: 0 px;
-            subcontrol-position: top;
-            subcontrol-origin: margin;
-        }
-    """,
-    'run_button': """
-        QPushButton {
-            background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                                        stop:0 rgba(253, 253, 253, 200), stop:1 rgba(239, 239, 239, 200));
-            border: 1px solid #ababab;
-            border-radius: 4px;
-            padding: 2px 8px;
-        }
-        QPushButton:hover {
-            background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                                        stop:0 #fefefe, stop:1 #f7f7f7);
-        }
-        QPushButton:pressed {
-            background: #dcdcdc;
-        }
-    """,
-    'path_edit': """
-        QLineEdit {
-            background: rgba(255,255,255,150);
-            border: 1px solid #ababab;
-            border-radius: 4px;
-            padding: 2px 2px;
-            color: black
-        }
-        QLineEdit:focus  {
-            border: 1px groove #41adff;
-        }
-        QLineEdit:pressed {
-            background: #dcdcdc;
-        }
-    """,
-    'path_edit_button': """
-        QToolButton {
-            background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                                        stop:0 rgba(253, 253, 253, 255), stop:1 rgba(239, 239, 239, 255));
-            border: 1px solid #ababab;
-            border-right: none;
-            border-top: none;
-            border-bottom: none;
-            padding: 2px 2px;
-        }
-        QToolButton:pressed {
-            background: #dcdcdc;
-        }
-    """,
-    'path_edit_button_right': """
-        QToolButton {
-            background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                                        stop:0 rgba(253, 253, 253, 200), stop:1 rgba(239, 239, 239, 200));
-            border: 1px solid #ababab;
-            border-top-right-radius: 4px;
-            border-bottom-right-radius: 4px;
-            border-top: none;
-            border-bottom: none;
-            border-right: none;
-            padding: 2px 2px;
-        }
-        QToolButton:hover {
-            background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                                        stop:0 #fefefe, stop:1 #f7f7f7);
-        }
-        QToolButton:pressed {
-            background: #dcdcdc;
-        }
-    """
-}
+global_stylesheet = {}
 
 with open(style_theme, 'r') as in_file:
     kolba_theme = json.load(in_file)
 
-
 with open(style_no_theme, 'r') as in_file:
     kolba_no_theme = json.load(in_file)
-
 
 def read_cfg(data_file):
     # read user settings file
@@ -402,7 +129,6 @@ def read_cfg(data_file):
         data_desc = {}
 
     return data, data_desc
-
 
 def get_current_screen_params():
     # get current active screen params
@@ -434,7 +160,6 @@ def get_current_screen_params():
     }
     return out_data
 
-
 def extract_metadata(script_text):
     match = re.search(r'"""(.*?)"""', script_text, re.S)
     if not match:
@@ -447,7 +172,6 @@ def extract_metadata(script_text):
             meta[key.strip()] = value.strip()
     return meta
 
-
 def is_url(url_string):
     # check if string is url
     try:
@@ -455,6 +179,157 @@ def is_url(url_string):
         return all([result.scheme, result.netloc])
     except ValueError:
         return False
+
+
+class BookmarkEditor(QWidget):
+    # user path editor
+
+    def __init__(self, parent, name, path, edit_item):
+        super().__init__()
+
+        # settings
+        self.setWindowModality(Qt.WindowModality.ApplicationModal)
+        self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowType.WindowStaysOnTopHint)
+        self.setWindowTitle('Bookmark')
+
+        self.main_widget = parent
+        self.edit_item = edit_item
+        mw_pos = self.main_widget.pos()
+        mw_size = self.main_widget.size()
+        self.setGeometry(
+            int(mw_pos.x() + mw_size.width() / 2 - 200),
+            int(mw_pos.y() + mw_size.height() / 2 - 80),
+            400,
+            10
+        )
+
+        # widgets
+        self.vbox = QVBoxLayout(self)
+        self.hbox_path = QHBoxLayout(self)
+        self.hbox_complete = QHBoxLayout(self)
+
+        self.bm_name = QLineEdit()
+        self.bm_name.setPlaceholderText("bookmark name...")
+
+        self.lt_ledit = QLineEdit()
+        self.lt_ledit.setPlaceholderText("path to folder...")
+
+        if name:
+            self.bm_name.setText(name)
+
+        if path:
+            self.lt_ledit.setText(path)
+
+        self.path_button = QPushButton()
+        self.path_button.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DirIcon))
+        self.path_button.setToolTip('Path to folder')
+        self.path_button.setMaximumWidth(35)
+
+        self.ok_btn = QPushButton("Ok")
+        self.cancel_btn = QPushButton("Cancel")
+
+        self.hbox_path.addWidget(self.lt_ledit)
+        self.hbox_path.addWidget(self.path_button)
+
+        self.hbox_complete.addWidget(self.ok_btn)
+        self.hbox_complete.addWidget(self.cancel_btn)
+
+        self.vbox.addWidget(self.bm_name)
+        self.vbox.addLayout(self.hbox_path)
+        self.vbox.addLayout(self.hbox_complete)
+
+        self.setLayout(self.vbox)
+
+        # actions
+        self.path_button.clicked.connect(self.path_selector)
+        self.ok_btn.clicked.connect(self.add_path)
+        self.cancel_btn.clicked.connect(self.cancel_add)
+        self.show()
+
+    def path_selector(self):
+        # dir selector
+
+        dialog = QFileDialog()
+        dialog.setFileMode(QFileDialog.FileMode.Directory)
+        dialog.setOption(QFileDialog.Option.DontUseNativeDialog)
+        default_path = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DocumentsLocation)
+        dialog.setDirectory(default_path)
+
+        result = dialog.getExistingDirectory(self, "Select folder with scripts")
+        if result:
+            # selected_path = result.path().strip(string.punctuation)
+            selected_path = os.path.abspath(result.strip())
+            self.lt_ledit.setText(selected_path)
+
+    def check_all_paths(self, check_txt):
+        # check for path if it already exists
+        path_exists = False
+        for row in range(self.main_widget.lw_bookmarks.topLevelItemCount()):
+            item = self.main_widget.lw_bookmarks.topLevelItem(row)
+            if self.edit_item and self.edit_item == item:
+                continue
+            if item is not None:
+                txt_item = item.text(2)
+                if os.path.abspath(txt_item) == os.path.abspath(check_txt):
+                    path_exists = True
+                    break
+        return path_exists
+
+    def check_all_names(self, name):
+        # check for bookmark name if it already exists
+        bm_exists = False
+        for row in range(self.main_widget.lw_bookmarks.topLevelItemCount()):
+            item = self.main_widget.lw_bookmarks.topLevelItem(row)
+            if self.edit_item and self.edit_item == item:
+                continue
+            if item is not None:
+                txt_item = item.text(1)
+                if name.strip() == txt_item.strip():
+                    bm_exists = True
+                    break
+        return bm_exists
+
+    def add_path(self):
+        # adding path to list
+        n_name_bm = self.bm_name.text()
+        n_path_url = os.path.abspath(self.lt_ledit.text())
+        check_names = self.check_all_names(n_name_bm)
+        check_path = self.check_all_paths(n_path_url)
+
+        if not n_name_bm:
+            self.warning_message("Name cannot be empty")
+            return
+        
+        if self.lt_ledit.text().strip() and os.path.isdir(n_path_url):
+            if self.edit_item:
+                if check_path:
+                    self.warning_message('The bookmark path is already in list')
+                elif check_names:
+                    self.warning_message('The bookmark name is already in list')
+                else:
+                    self.edit_item.setText(1, n_name_bm)
+                    self.edit_item.setText(2, n_path_url)
+                    self.main_widget.update_bookmarks()
+                    self.close()
+            else:
+                if check_path:
+                    self.warning_message('The folder is already in list')
+                else:
+                    self.main_widget.add_bookmark_row(n_name_bm, n_path_url, True)
+                    self.main_widget.update_bookmarks()
+                    self.close()
+        else:
+            self.warning_message('Invalid path')
+
+    def cancel_add(self):
+        # cancel path adding
+        self.close()
+
+    def warning_message(self, err_text):
+        # warning notification
+
+        msg = QMessageBox()
+        msg.warning(self, "Warning", err_text)
 
 
 class PathEditor(QWidget):
@@ -523,30 +398,30 @@ class PathEditor(QWidget):
         default_path = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DocumentsLocation)
         dialog.setDirectory(default_path)
 
-        result = dialog.getExistingDirectoryUrl(self, "Select folder with scripts")
+        result = dialog.getExistingDirectory(self, "Select folder with scripts")
         if result:
-            selected_path = result.path().strip(string.punctuation)
+            selected_path = os.path.abspath(result.strip()) #string.punctuation)
             self.lt_ledit.setText(selected_path)
 
-    def check_all_paths(self, chek_txt):
+    def check_all_paths(self, check_txt):
         # check for path if it already exists
 
         path_exists = False
         for itm in range(self.main_widget.lw.count()):
             txt_item = self.main_widget.lw.item(itm).text()
-            if os.path.normpath(txt_item) == os.path.normpath(chek_txt):
+            if os.path.abspath(txt_item) == os.path.abspath(check_txt):
                 path_exists = True
         return path_exists
 
     def add_path(self):
         # adding path to list
 
-        n_path_url = os.path.normpath(self.lt_ledit.text())
+        n_path_url = os.path.abspath(self.lt_ledit.text())
         check_path = self.check_all_paths(n_path_url)
         if os.path.isdir(n_path_url):
             if self.edit_item:
                 if check_path:
-                    if os.path.normpath(self.edit_item.text()) == n_path_url:
+                    if os.path.abspath(self.edit_item.text()) == n_path_url:
                         self.close()
                     else:
                         self.warning_message('The folder is already in list')
@@ -574,6 +449,44 @@ class PathEditor(QWidget):
         msg.warning(self, "Warning", err_text)
 
 
+class BookmarksTreeWidget(QTreeWidget):
+    def __init__(self, parent):
+        super().__init__()
+        self.sw = parent
+        self.setColumnCount(3)
+        self.setHeaderLabels(["", "Name", "Path"])
+        
+        self.setDragEnabled(True)
+        self.setAcceptDrops(True)
+        self.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
+        
+        self.setDropIndicatorShown(True)
+        self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.customContextMenuRequested.connect(self.show_context_menu)
+
+    def dropEvent(self, event):
+        model_index = self.indexAt(event.position().toPoint() if hasattr(event, 'position') else event.pos())
+        target_row = model_index.row()
+
+        super().dropEvent(event)
+        if target_row == -1:
+            target_row = self.topLevelItemCount() - 1
+        item = self.topLevelItem(target_row)
+        if item:
+            self.setCurrentItem(item)
+        self.sw.update_bookmarks()
+    
+    def show_context_menu(self, pos):
+        item = self.itemAt(pos)
+        if not item:
+            return  
+        menu = QMenu(self)
+        edit_action = menu.addAction("Edit bookmark")
+        edit_action.triggered.connect(lambda: self.sw.edit_bookmark())
+        global_position = self.mapToGlobal(pos)
+        menu.exec(global_position)
+
+
 class KolbaSettings(QMainWindow):
     # path editor table
 
@@ -590,16 +503,26 @@ class KolbaSettings(QMainWindow):
         self.setWindowFlags(self.windowFlags() & QtCore.Qt.WindowType.CustomizeWindowHint)
         self.setWindowFlags(self.windowFlags() & ~QtCore.Qt.WindowType.WindowMinMaxButtonsHint)
         self.setWindowTitle('Kolba settings')
+        self.last_dir = self.settings.value("kolba_themes_dir", default_scripts_path)
 
         scr_params = get_current_screen_params()
         c_x, c_y = scr_params['center_x'], scr_params['center_y']
         self.setGeometry(int(c_x - 600 / 2), int(c_y - 200), 600, 260)
 
         # variables
+        self.init_state_paths = self.mw.kolba_widget.recent_paths
+        self.state_paths = self.mw.kolba_widget.recent_paths
+
         self.init_state_theme = self.mw.kolba_widget.theme
+
+        self.init_state_bookmarks = dict(self.mw.kolba_widget.bookmarks)
+        self.state_bookmarks = dict(self.mw.kolba_widget.bookmarks)
+        
         self.init_state_opacity = self.mw.kolba_widget.theme_opacity
         self.init_state_tool_widget_ori = self.mw.kolba_widget.tw_orientation
         self.ws_path = self.mw.kolba_widget.webscript_default_location_url
+        self.ks_path = self.mw.kolba_widget.webscript_custom_set
+        
         self.just_close = False
         self.cancel_edits = False
 
@@ -613,6 +536,7 @@ class KolbaSettings(QMainWindow):
         # layout
         layout = QVBoxLayout(self)
         h_layout = QHBoxLayout(self)
+        h_layout_bookmarks = QHBoxLayout(self)
         self.grid_theme = QGridLayout(self)
 
         # path labels, buttons
@@ -625,14 +549,21 @@ class KolbaSettings(QMainWindow):
         btn_minus.setIcon(QIcon(":images/themes/default/symbologyRemove.svg"))
         btn_minus.setMaximumWidth(30)
 
+        btn_edit = QPushButton()
+        btn_edit.setIcon(QIcon(":images/themes/default/mActionToggleEditing.svg"))
+        btn_edit.setMaximumWidth(30)
+
         h_layout.addWidget(lbl_paths)
         h_layout.addWidget(btn_plus)
         h_layout.addWidget(btn_minus)
+        h_layout.addWidget(btn_edit)
 
         # path listwidget
         self.lw = QListWidget()
         self.lw.setDragDropMode(QAbstractItemView.DragDropMode.DragDrop)
         self.lw.setDefaultDropAction(Qt.DropAction.MoveAction)
+        self.lw.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.lw.customContextMenuRequested.connect(self.show_context_menu)
 
         # path collection
         list_menu_paths = []
@@ -644,16 +575,69 @@ class KolbaSettings(QMainWindow):
             lwi.setText(f)
             self.lw.addItem(lwi)
 
+        # bookmarks
+        lbl_bookmarks = QLabel("Bookmarks")
+        btn_plus_bookmark = QPushButton()
+        btn_plus_bookmark.setIcon(QIcon(":images/themes/default/symbologyAdd.svg"))
+        btn_plus_bookmark.setMaximumWidth(30)
+
+        btn_minus_bookmark = QPushButton()
+        btn_minus_bookmark.setIcon(QIcon(":images/themes/default/symbologyRemove.svg"))
+        btn_minus_bookmark.setMaximumWidth(30)
+
+        btn_edit_bookmark = QPushButton()
+        btn_edit_bookmark.setIcon(QIcon(":images/themes/default/mActionToggleEditing.svg"))
+        btn_edit_bookmark.setMaximumWidth(30)
+
+
+        h_layout_bookmarks.addWidget(lbl_bookmarks)
+        
+        h_layout_bookmarks.addWidget(btn_plus_bookmark)
+        h_layout_bookmarks.addWidget(btn_minus_bookmark)
+        h_layout_bookmarks.addWidget(btn_edit_bookmark)
+
+        self.lw_bookmarks = BookmarksTreeWidget(self)
+        self.lw_bookmarks.setStyleSheet("QTreeWidget::item { padding: 2px 0px; alignment: AlignCenter;}")
+        self.lw_bookmarks.header().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        self.lw_bookmarks.setIndentation(4)
+
+        for bm_name, bm_path_data in self.mw.kolba_widget.bookmarks.items():
+            bm_path = bm_path_data[0]
+            bm_enabled = bm_path_data[1]
+            self.add_bookmark_row(bm_name, bm_path, bm_enabled)
+            
+
         # webscript default url
         self.webscript_default_location_lbl = QLabel("WebScript default location")
         self.webscript_default_location = QLineEdit()
         self.webscript_default_location.setPlaceholderText("url to webscripts location...")
         if self.ws_path:
             self.webscript_default_location.setText(self.ws_path)
-
+        
         self.layout_ws = QHBoxLayout()
         self.layout_ws.addWidget(self.webscript_default_location_lbl)
         self.layout_ws.addWidget(self.webscript_default_location, stretch=1)
+
+        # webscript custom set url
+        self.webscript_kolba_set_location_lbl = QLabel("WebScript custom set URL")
+        self.webscript_kolba_set_location = QLineEdit()
+        self.webscript_kolba_set_location.setPlaceholderText("url to custom set location...")
+        if self.ks_path:
+            self.webscript_kolba_set_location.setText(self.ks_path)
+        
+        self.layout_ks = QHBoxLayout()
+        self.layout_ks.addWidget(self.webscript_kolba_set_location_lbl)
+        self.layout_ks.addWidget(self.webscript_kolba_set_location, stretch=1)
+
+        self.layout_ksws = QGridLayout()
+        self.layout_ksws.addWidget(self.webscript_default_location_lbl,   0, 0, 1, 1)
+        self.layout_ksws.addWidget(self.webscript_default_location,       0, 1, 1, 1)
+        self.layout_ksws.addWidget(self.webscript_kolba_set_location_lbl, 1, 0, 1, 1)
+        self.layout_ksws.addWidget(self.webscript_kolba_set_location,     1, 1, 1, 1)
+
+        # save/load config
+        self.btn_export_config = QPushButton("Export config")
+        self.btn_import_config = QPushButton("Import config")
 
         # frames orientation
         self.tools_orientation_lbl = QLabel("Tools widget orientation")
@@ -736,33 +720,258 @@ class KolbaSettings(QMainWindow):
         gb_style = QGroupBox("Style")
         layout_path = QVBoxLayout()
         layout_path.addLayout(h_layout)
+        
         layout_path.addWidget(self.lw)
-        layout_path.addLayout(self.layout_ws)
+        layout_path.addLayout(h_layout_bookmarks)
+        layout_path.addWidget(self.lw_bookmarks)
+        layout_path.addLayout(self.layout_ksws)
+        # layout_path.addLayout(self.layout_ks)
+        layout_path.addWidget(self.btn_export_config)
+        layout_path.addWidget(self.btn_import_config)
+
         gb_path.setLayout(layout_path)
 
         layout_style = QVBoxLayout()
         layout_style.addLayout(self.layout_tools_ori)
         layout_style.addWidget(self.check_theme)
         layout_style.addLayout(self.grid_theme)
-        layout_style.addLayout(self.save_lt)
+        # layout_style.addLayout(self.save_lt)
         gb_style.setLayout(layout_style)
 
         layout.addWidget(gb_path)
         layout.addWidget(gb_style)
+        layout.addLayout(self.save_lt)
 
         self.settings_widget.setLayout(layout)
 
         # actions
         btn_plus.clicked.connect(self.add_new_path)
         btn_minus.clicked.connect(self.delete_path)
+        btn_edit.clicked.connect(self.edit_path)
+        btn_plus_bookmark.clicked.connect(self.add_new_bookmark)
+        btn_minus_bookmark.clicked.connect(self.delete_bookmark)
+        btn_edit_bookmark.clicked.connect(self.edit_bookmark)
         self.save_btn.clicked.connect(self.save_settings)
         self.cancel_btn.clicked.connect(self.cancel_settings)
         self.lw.doubleClicked.connect(self.edit_path)
+        self.lw_bookmarks.doubleClicked.connect(self.edit_bookmark)
+        self.lw_bookmarks.itemChanged.connect(self.update_bookmarks)
         self.check_theme.stateChanged.connect(self.check_theme_path)
         self.btn_theme_path.clicked.connect(self.get_theme_file)
         self.tools_orientation.currentIndexChanged.connect(self.set_tw_orientation)
+        self.btn_export_config.clicked.connect(self.export_config)
+        self.btn_import_config.clicked.connect(self.import_config)
 
         self.show()
+    
+    def export_config(self):
+        check = self.check_state()
+        if check:
+            msg_box = QMessageBox(self)
+            msg_box.setWindowTitle('Notification')
+            msg_box.setText('Save changes before config export')
+            yes_button = msg_box.addButton("Yes", QMessageBox.ButtonRole.YesRole)
+            no_button = msg_box.addButton("Cancel", QMessageBox.ButtonRole.NoRole)
+            msg_box.setDefaultButton(no_button)
+            msg_box.exec()
+            if msg_box.clickedButton() == yes_button:
+                self.save_settings(True)
+            else:
+                return 
+        # else:
+        self.collect_paths()
+        self.update_bookmarks()
+        ws_path = self.webscript_default_location.text()
+        ks_path = self.webscript_kolba_set_location.text()
+        config = {
+            'saved_paths': self.state_paths, 
+            'webscript_default_location_url': ws_path, 
+            'webscript_custom_set': ks_path, 
+            'bookmarks': self.state_bookmarks
+        }
+        initial_dir = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DocumentsLocation)
+        initial_path = str(Path(initial_dir))
+
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export config",
+            initial_path,
+            "JSON Files (*.json)"
+        )
+
+        if file_path:
+            path = Path(file_path)
+            with open(path, 'w', encoding='utf-8') as out_file:
+                json.dump(config, out_file, indent=4, ensure_ascii=False)
+            self.warning_message("Config is exported")
+
+    def import_config(self):
+        
+        cfg_f = QFileDialog.getOpenFileName(self, "Select kolba path config file", self.last_dir, "Images(*.json)")[0]
+        if cfg_f:
+            if os.path.isfile(cfg_f):
+                valid = False 
+                cfg_data = {}
+                try:
+                    with open(cfg_f, 'r') as cfg_io:
+                        cfg_data = json.load(cfg_io)
+                        case_keys = all([key in cfg_data.keys() for key in ['saved_paths', 'webscript_default_location_url', 'webscript_custom_set', 'bookmarks']])
+                        if case_keys:
+                            case_saved_paths = type(cfg_data['saved_paths']) == list  
+                            case_ws_path = type(cfg_data['webscript_default_location_url']) == str  
+                            case_ks_path = type(cfg_data['webscript_custom_set']) == str  
+                            case_bm = type(cfg_data['bookmarks']) == dict 
+                            if all([v for v in [case_saved_paths, case_ws_path, case_ks_path, case_bm]]):
+                                valid = True 
+                except:
+                    pass 
+                if not valid:
+                    self.warning_message('Config does not match template:\n' \
+                    '{\n    "saved_paths": [path1, path2,...],\n    "webscript_default_location_url": url,\n    "webscript_custom_set": url,\n    "bookmarks": {bm:[path, enabled],...}\n}')
+                else:
+                    saved_paths = cfg_data.get('saved_paths', [])
+                    ws_path = cfg_data.get('webscript_default_location_url', '')
+                    ks_path = cfg_data.get('webscript_custom_set', '')
+                    bm = cfg_data.get('bookmarks', {})
+
+                    self.lw.clear()
+                    for f in saved_paths:
+                        lwi = QListWidgetItem()
+                        lwi.setText(f)
+                        self.lw.addItem(lwi)
+                    
+                    self.webscript_default_location.setText(ws_path)
+                    self.webscript_kolba_set_location.setText(ks_path)
+
+                    self.lw_bookmarks.clear()
+                    for bm_name, bm_path_data in bm.items():
+                        if len(bm_path_data)==2:
+                            bm_path = bm_path_data[0]
+                            bm_enabled = bm_path_data[1]
+                            if type(bm_path) == str and type(bm_enabled) == bool:
+                                self.add_bookmark_row(bm_name, bm_path, bm_enabled)
+                    self.update_bookmarks()
+
+    def show_context_menu(self, position):
+        clicked_item = self.lw.itemAt(position)
+        context_menu = QMenu(self)
+
+        if clicked_item:
+            action_add = QAction("Add path to bookmarks", self)
+            action_add.triggered.connect(lambda: self.add_item(clicked_item.text()))
+            context_menu.addAction(action_add)
+
+        global_position = self.lw.mapToGlobal(position)
+        context_menu.exec(global_position)
+    
+    def add_item(self, path):
+
+        path_exists = False
+        txt_name = ''
+        for row in range(self.lw_bookmarks.topLevelItemCount()):
+            item = self.lw_bookmarks.topLevelItem(row)
+            if item is not None:
+                txt_name = item.text(1)
+                txt_path = item.text(2)
+                if os.path.abspath(txt_path) == os.path.abspath(path):
+                    path_exists = True
+                    break
+        if path_exists:
+            self.warning_message('Selected path is already a bookmark "{}"'.format(txt_name))
+        else:
+            self.p = BookmarkEditor(self, os.path.basename(path), path, False)
+
+    def add_bookmark_row(self, name, path, enabled):
+        item = QTreeWidgetItem(['', name, path])
+        check_state = Qt.CheckState.Checked if enabled else Qt.CheckState.Unchecked
+        item.setCheckState(0, check_state)
+        item.setFlags(item.flags() | Qt.ItemFlag.ItemIsDragEnabled | Qt.ItemFlag.ItemIsUserCheckable)
+        item.setTextAlignment(0, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        item.setTextAlignment(1, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        item.setTextAlignment(2, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsDropEnabled)
+        self.lw_bookmarks.addTopLevelItem(item)
+        if enabled and not self.mw.kolba_widget.widget_tabs.isVisible():
+            self.mw.kolba_widget.widget_tabs.show()
+    
+    def get_bookmarks(self):
+        bookmarks = {}
+        for row in range(self.lw_bookmarks.topLevelItemCount()):
+            item = self.lw_bookmarks.topLevelItem(row)
+            txt_item_name = item.text(1)
+            txt_item_path = os.path.abspath(item.text(2))
+            state = True if item.checkState(0)== Qt.CheckState.Checked else False
+            bookmarks[txt_item_name] = [txt_item_path, state]
+        return bookmarks
+        
+    def update_bookmarks(self):
+        states = False
+        self.state_bookmarks = {}
+        while self.mw.kolba_widget.bookmarks_layout.count():
+            item = self.mw.kolba_widget.bookmarks_layout.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.setParent(None)
+                widget.deleteLater()
+
+        
+        self.mw.kolba_widget.widget_tabs.show()
+        self.mw.kolba_widget.scroll_bookmark_container.adjustSize()
+        self.mw.kolba_widget.scroll_bookmarks.updateGeometry()
+        self.mw.kolba_widget.widget_tabs.updateGeometry()
+        self.mw.kolba_widget.widget_tabs.repaint()
+        QtCore.QCoreApplication.processEvents()
+        for row in range(self.lw_bookmarks.topLevelItemCount()):
+            item = self.lw_bookmarks.topLevelItem(row)
+            txt_item_name = item.text(1)
+            txt_item_path = os.path.abspath(item.text(2))
+            state = True if item.checkState(0)== Qt.CheckState.Checked else False
+            if state:
+                # self.mw.kolba_widget.widget_tabs.show()
+                states = True
+                if txt_item_name and txt_item_path:
+                    btn = QPushButton(txt_item_name, self.mw.kolba_widget.scroll_bookmark_container)
+                    btn.setCheckable(True)
+                    btn.setCursor(Qt.CursorShape.PointingHandCursor)
+                    btn.setStyleSheet(global_stylesheet['bookmark_button'])
+                    btn.setToolTip(txt_item_path)
+                    btn.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Maximum)
+                    font_metrics = btn.fontMetrics()
+                    calculated_height = font_metrics.height() + 10 
+                    btn.setMaximumHeight(calculated_height) 
+                    if txt_item_path == os.path.abspath(self.mw.kolba_widget.wpath):
+                        btn.setChecked(True)
+                        btn.setCursor(Qt.CursorShape.ArrowCursor)
+                    btn.clicked.connect(lambda checked, path=txt_item_path: self.mw.kolba_widget.load_bookmark(path))
+                    btn.show()
+                    self.mw.kolba_widget.bookmarks_layout.addWidget(btn)
+                    QtCore.QCoreApplication.processEvents()
+            self.state_bookmarks[txt_item_name] = [txt_item_path, state]
+                    
+        if states:
+            self.mw.kolba_widget.widget_tabs.show()
+            self.mw.kolba_widget.scroll_bookmark_container.adjustSize()
+            self.mw.kolba_widget.scroll_bookmarks.updateGeometry()
+            self.mw.kolba_widget.widget_tabs.updateGeometry()
+            self.mw.kolba_widget.widget_tabs.repaint()
+        
+            QtCore.QCoreApplication.processEvents()
+        else:
+            self.mw.kolba_widget.widget_tabs.hide()
+
+        
+    def bookmarks_enabled_check(self):
+        if self.check_bookmarks.isChecked():
+            self.mw.kolba_widget.widget_tabs.show()
+        else:
+            self.mw.kolba_widget.widget_tabs.hide()
+
+        self.mw.kolba_widget.scroll_bookmark_container.adjustSize()
+        self.mw.kolba_widget.scroll_bookmarks.updateGeometry()
+        self.mw.kolba_widget.widget_tabs.updateGeometry()
+        self.mw.kolba_widget.widget_tabs.repaint()
+        
+        QtCore.QCoreApplication.processEvents()
 
     def set_tw_orientation(self):
         if self.tools_orientation.currentText() == 'Horizontal':
@@ -864,23 +1073,74 @@ class KolbaSettings(QMainWindow):
         # adding a new path
 
         self.v = PathEditor(self, None, False)
+    
+    def add_new_bookmark(self):
+        # adding a new path
 
+        self.v = BookmarkEditor(self, None, None, False)
+    
     def edit_path(self):
         # editing an existing path
 
         s_items = self.lw.selectedItems()
         if s_items:
             self.v = PathEditor(self, s_items[0].text(), s_items[0])
-
+        else:
+            self.warning_message('Select a path to edit')
+    
+    def edit_bookmark(self):
+        # editing an existing path
+        current_item = self.lw_bookmarks.currentItem()
+        if current_item:
+            self.v = BookmarkEditor(self, current_item.text(1), current_item.text(2), current_item)
+        else:
+            self.warning_message('Select a bookmark to edit')
+        
     def delete_path(self):
         # delete selected path
 
         s_items = self.lw.selectedItems()
         if s_items:
             idx = self.lw.indexFromItem(s_items[0]).row()
-            self.lw.takeItem(idx)
+            check_path = os.path.abspath(s_items[0].text())
+            bookmark_paths = [f[0] for f in self.state_bookmarks.values()]
+            if check_path in bookmark_paths:
+                msg_box = QMessageBox(self)
+                msg_box.setWindowTitle('Notification')
+                msg_box.setText('Path exists in bookmarks. Bookmark is going to be deleted too.\nContinue?')
+                yes_button = msg_box.addButton("Yes", QMessageBox.ButtonRole.YesRole)
+                no_button = msg_box.addButton("No", QMessageBox.ButtonRole.NoRole)
 
-    def save_settings(self):
+                msg_box.setDefaultButton(no_button)
+                msg_box.exec()
+                if msg_box.clickedButton() == yes_button:
+                    self.lw.takeItem(idx)
+                    self.lw_bookmarks.takeTopLevelItem(bookmark_paths.index(check_path))
+                    self.update_bookmarks()
+
+            else:
+                self.lw.takeItem(idx)
+        else:
+            self.warning_message('Select a path to delete')
+    
+    def delete_bookmark(self):
+        # delete selected bookmark
+        current_item = self.lw_bookmarks.currentItem()
+        if current_item:
+            index = self.lw_bookmarks.indexOfTopLevelItem(current_item)
+            self.lw_bookmarks.takeTopLevelItem(index)
+            self.update_bookmarks()
+        else:
+            self.warning_message('Select a bookmark to delete')
+    
+    def collect_paths(self):
+        self.state_paths = []
+        for item in range(self.lw.count()):
+            txt_item = self.lw.item(item).text()
+            # print(os.path.abspath(txt_item))
+            self.state_paths.append(os.path.abspath(txt_item))
+
+    def save_settings(self, silent=False):
         # save settings
 
         global global_stylesheet
@@ -895,13 +1155,13 @@ class KolbaSettings(QMainWindow):
         # check if current kolba path is equal to something from recent
         path_exists = False
         for path in self.mw.kolba_widget.recent_paths:
-            if os.path.normpath(path) == os.path.normpath(self.mw.kolba_widget.wpath):
+            if os.path.abspath(path) == os.path.abspath(self.mw.kolba_widget.wpath):
                 path_exists = True
 
         # if actual path is no longer available, the first from recent is taken
         if not path_exists and self.mw.kolba_widget.recent_paths:
             self.mw.kolba_widget.wpath = self.mw.kolba_widget.recent_paths[0]
-
+        
         self.mw.kolba_widget.path_line.setText(self.mw.kolba_widget.wpath)
         self.mw.kolba_widget.get_actions(self.mw.kolba_widget.model)
         self.mw.kolba_widget.add_recent_paths()
@@ -913,7 +1173,7 @@ class KolbaSettings(QMainWindow):
                 root, extension = os.path.splitext(current_path)
                 new_file = os.path.join(cfg_folder, 'theme{}'.format(extension))
                 copyfile(current_path, new_file)
-                self.mw.kolba_widget.theme = os.path.normpath(self.theme_path.text())
+                self.mw.kolba_widget.theme = os.path.abspath(self.theme_path.text())
                 self.mw.kolba_widget.theme_opacity = self.spinbox_opacity.value()
                 global_stylesheet = kolba_theme
         else:
@@ -927,11 +1187,16 @@ class KolbaSettings(QMainWindow):
 
         # set websctipts new path
         self.mw.kolba_widget.webscript_default_location_url = self.webscript_default_location.text()
+        self.mw.kolba_widget.webscript_custom_set = self.webscript_kolba_set_location.text()
+        self.mw.kolba_widget.bookmarks = self.state_bookmarks
 
         # wtie config without confirm
         self.mw.write_new_cfg()
         self.just_close = True
-        self.close()
+        if not silent:
+            self.warning_message("Config is saved!")
+        
+        # self.close()
 
     def warning_message(self, err_text):
         # warning notification
@@ -969,15 +1234,68 @@ class KolbaSettings(QMainWindow):
                 self.set_pic_theme(self.init_state_theme)
         else:
             self.check_theme.setChecked(False)
-
+     
+        self.mw.kolba_widget.recent_paths = self.init_state_paths
         self.tools_orientation.setCurrentText(self.init_state_tool_widget_ori)
         self.webscript_default_location.setText(self.ws_path)
+        self.webscript_kolba_set_location.setText(self.ks_path)
+        self.mw.kolba_widget.bookmarks = dict(self.init_state_bookmarks)
 
         self.check_theme_path()
+        self.mw.kolba_widget.add_bookmarks()
+
         self.close()
+
+    def check_state(self):
+        
+        need_check = False
+        self.collect_paths()
+        # self.update_bookmarks()
+        self.check_bookmarks = self.get_bookmarks()
+
+        if self.init_state_theme:
+            # opacity is changed
+            if self.init_state_opacity != self.spinbox_opacity.value():
+                need_check = True
+
+                # theme checkbox is not checked and theme path is non-empty
+            if not self.check_theme.isChecked() and self.theme_path.text():
+                need_check = True
+
+            # theme path is non-empty and new
+            if self.init_state_theme and self.init_state_theme != self.theme_path.text():
+                need_check = True
+
+            # theme checkbox is checked and theme path is empty
+            if self.check_theme.isChecked() and not self.theme_path.text():
+                self.set_previous_state()
+                need_check = False
+
+        
+        # theme was turned off
+        else:
+            if self.check_theme.isChecked():
+                need_check = True
+        if self.state_paths!=self.init_state_paths:
+            need_check = True
+
+        if list(self.check_bookmarks.items())!=list(self.init_state_bookmarks.items()):
+            need_check = True
+
+        if self.init_state_tool_widget_ori != self.tools_orientation.currentText():
+            need_check = True
+
+        if self.webscript_default_location.text() != self.ws_path:
+            need_check = True
+        
+        if self.webscript_kolba_set_location.text() != self.ks_path:
+            need_check = True
+        
+        return need_check
 
     def closeEvent(self, event):
         # close event
+        
         # if cancelled or check if theme is applied
         if self.cancel_edits or (self.check_theme.isChecked() and not self.theme_path.text()):
             self.set_previous_state()
@@ -990,35 +1308,7 @@ class KolbaSettings(QMainWindow):
         if self.just_close:
             self.close()
         else:
-            # check for theme changes
-            if self.init_state_theme:
-                # opacity is changed
-                if self.init_state_opacity != self.spinbox_opacity.value():
-                    self.need_check = True
-
-                    # theme checkbox is not checked and theme path is non-empty
-                if not self.check_theme.isChecked() and self.theme_path.text():
-                    self.need_check = True
-
-                # theme path is non-empty and new
-                if self.init_state_theme and self.init_state_theme != self.theme_path.text():
-                    self.need_check = True
-
-                # theme checkbox is checked and theme path is empty
-                if self.check_theme.isChecked() and not self.theme_path.text():
-                    self.set_previous_state()
-                    self.need_check = False
-
-            # theme was turned off
-            else:
-                if self.check_theme.isChecked():
-                    self.need_check = True
-
-            if self.init_state_tool_widget_ori != self.tools_orientation.currentText():
-                self.need_check = True
-
-            if self.webscript_default_location.text() != self.ws_path:
-                self.need_check = True
+            self.need_check = self.check_state()
 
             # answer user if he is ok to save current state
             if self.need_check:
@@ -1026,13 +1316,14 @@ class KolbaSettings(QMainWindow):
                 msg_box.setWindowTitle('Notification')
                 msg_box.setText('Save changes?')
 
-                msg_box.addButton("Yes", QMessageBox.ButtonRole.YesRole)
+                yes_button = msg_box.addButton("Yes", QMessageBox.ButtonRole.YesRole)
                 no_button = msg_box.addButton("No", QMessageBox.ButtonRole.NoRole)
 
                 msg_box.setDefaultButton(no_button)
-                reply = msg_box.exec()
-                if reply == 0:
-                    self.save_settings()
+                msg_box.exec()
+                if msg_box.clickedButton() == yes_button:
+                    self.save_settings(True)
+                    # event.ignore()
                 else:
                     self.set_previous_state()
             else:
@@ -1059,8 +1350,8 @@ class AboutKolba(QMainWindow):
 
         upd = 'Updates:\n- {}'.format('\n- '.join(self.updates))
         pixmap = QPixmap(QICON_KOLBA_LOGO)
-        scr_params = get_current_screen_params()
-        c_x, c_y = scr_params['center_x'], scr_params['center_y']
+        self.screen_params = get_current_screen_params()
+        c_x, c_y = self.screen_params['center_x'], self.screen_params['center_y']
 
         # effect
         shadow = QGraphicsDropShadowEffect()
@@ -1081,18 +1372,39 @@ class AboutKolba(QMainWindow):
         self.label_help.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.label_help.setOpenExternalLinks(True)
         self.label_help.setText(
-            '''<a href="https://github.com/pavelpereverzev/kolba/tree/main?tab=readme-ov-file">Help</a>'''
+            '''<a href="https://github.com/pavelpereverzev/kolba/tree/main?tab=readme-ov-file">User Guide</a>'''
         )
 
-        # picture
-        self.label_pic = QLabel(self)
+        self.label_about_kolba = QLabel(None)
+        self.label_about_kolba.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.label_about_kolba.setOpenExternalLinks(True)
+        self.label_about_kolba.setText(
+            '''<a href="https://gisworks.ru/kolba">About</a>'''
+        )
+
+        self.label_pp = QLabel(None)
+        self.label_pp.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.label_pp.setOpenExternalLinks(True)
+        self.label_pp.setText(
+            '''<a href="https://pereverzev.info">Developer Website</a>'''
+        )
+
+        self.layout_labels = QVBoxLayout()
+        self.layout_labels.addWidget(self.label_help)
+        self.layout_labels.addWidget(self.label_about_kolba)
+        self.layout_labels.addWidget(self.label_pp)
+
+        self.label_pic = QLabel() 
         self.label_pic.setPixmap(pixmap)
+        self.label_pic.setFixedSize(pixmap.size())
         self.label_pic.setGraphicsEffect(shadow)
+        self.label_pic.setScaledContents(True)
+        self.label_pic.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         # info
         self.label_txt = QLabel(
-            """Kolba (ex "Scripter" from easyPlugin tool) is a plugin for testing and running scripts/plugins. """
-            """It allows developers to quickly test their scripts and share them among collegaues instead of """
+            """Kolba is a plugin for testing and running scripts/plugins. """
+            """It allows developers to quickly test their scripts and share them among colleagues instead of """
             """compiling them into zip plugins.""")
         self.label_txt.setWordWrap(True)
         self.label_txt.setAlignment(Qt.AlignmentFlag.AlignLeft)
@@ -1106,19 +1418,25 @@ class AboutKolba(QMainWindow):
         self.label_me = QLabel("Pereverzev Pavel, 2026")
         self.label_me.setAlignment(Qt.AlignmentFlag.AlignRight)
 
-        # layout ordering
-        group_box_layout.addWidget(self.label_pic, Qt.AlignmentFlag.AlignCenter)
-        group_box_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # group_box_layout.setContentsMargins(5, 5, 5, 5)
+        group_box_layout.addWidget(self.label_pic, alignment=Qt.AlignmentFlag.AlignCenter)
         group_box.setLayout(group_box_layout)
+        group_box.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        
+        # group_box.setFixedSize(pixmap.width() + 20, pixmap.height() + 20)
 
-        vbox.addWidget(self.label_kolba)
-        vbox.addWidget(self.label_help)
-        vbox.addWidget(group_box)
-        vbox.addWidget(self.label_txt)
-        vbox.addWidget(self.label_upd)
-        vbox.addWidget(self.label_me)
+        vbox.addWidget(self.label_kolba, 0)
+        vbox.addLayout(self.layout_labels, 0)
+        vbox.addWidget(group_box, 1)
+        vbox.addWidget(self.label_txt, 0)
+        vbox.addWidget(self.label_upd, 0)
+        vbox.addWidget(self.label_me, 0)
 
         self.about_widget.setLayout(vbox)
+
+        self.about_widget.adjustSize()
+        self.adjustSize()
+        self.setMinimumSize(self.size()) 
 
         # animations
         self.animation_color = QPropertyAnimation(shadow, b'color')
@@ -1149,11 +1467,15 @@ class AboutKolba(QMainWindow):
         self.animation_group.start()
 
         self.show()
-        self.setGeometry(int(c_x - 260 / 2), int(c_y - 200), 256, 512)
 
     def closeEvent(self, event):
         self.animation_group.stop()
-
+    
+    def showEvent(self, event):
+        qtRectangle = self.frameGeometry()
+        self.move(int(self.screen_params.get('center_x', 0)-qtRectangle.width()/2), int(self.screen_params.get('center_y', 0)-qtRectangle.height()/2))
+        super().showEvent(event)
+        
 
 class AltLabelVersion(QLabel):
     clicked = pyqtSignal()
@@ -1211,6 +1533,30 @@ class ScriptPath(QLineEdit):
 
         layout.setSpacing(0)
         layout.setMargin(1)
+    
+    def open_in_explorer(self, current_path):
+        path_to_open = current_path
+        if os.path.isfile(current_path):
+            path_to_open = os.path.dirname(current_path)
+
+        if os.path.exists(path_to_open):
+            if os.name == 'nt': # Windows
+                os.startfile(path_to_open)
+            elif os.name == 'posix': # macOS / Linux
+                subprocess.Popen(['open' if sys.platform == 'darwin' else 'xdg-open', path_to_open])
+    
+    def contextMenuEvent(self, event):
+        menu = self.createStandardContextMenu()
+        current_path = self.text().strip()
+        if current_path:
+            action_open = QAction("Open path in file explorer", self)
+            action_open.triggered.connect(lambda: self.open_in_explorer(current_path))
+            first_action = menu.actions()[0]
+
+            menu.insertAction(first_action, action_open)
+            menu.insertSeparator(first_action)
+            
+        menu.exec(event.globalPos())
 
 
 class ThemeWidget(QWidget):
@@ -1275,6 +1621,17 @@ class HoverButtonTreeView(QTreeView):
         super().leaveEvent(event)
 
 
+class CustomListWidget(QListWidget):
+    def __init__(self):
+        super().__init__()
+        self.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+    
+    def mouseMoveEvent(self, event):
+        if event.buttons() & Qt.MouseButton.LeftButton:
+            return
+        super().mouseMoveEvent(event)
+
+
 class WebScript(QMainWindow):
     def __init__(self, parent):
         # super().__init__(parent=None)
@@ -1284,6 +1641,8 @@ class WebScript(QMainWindow):
         self.setWindowTitle("WebScripts")
         self.main_tool = parent
 
+        self.screen_params = get_current_screen_params()
+       
         self.tool_name = None
         self.tool_content = None
         self.mdata = {}
@@ -1291,8 +1650,31 @@ class WebScript(QMainWindow):
 
         # widgets
         centralWidget = QWidget()
-        self.layout = QGridLayout()
-        self.label_url = QLabel("Name or URL:")
+        # self.layout = QGridLayout()
+
+        self.gb_global_set = QGroupBox("Scripts set")
+        self.gb_custom = QGroupBox("Custom script")
+        self.gb_desc = QGroupBox("Description")
+
+        self.global_layout = QVBoxLayout()
+        self.scripts_data_layout = QVBoxLayout()
+        self.data_layout = QHBoxLayout()
+        
+        # part 1 - global set
+        self.global_set_layout = QVBoxLayout()
+        self.set_widget = CustomListWidget()
+        self.set_widget.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        
+
+        self.upd_btn = QPushButton('Update list')
+        self.global_set_layout.addWidget(self.set_widget)
+        self.global_set_layout.addWidget(self.upd_btn)
+        self.gb_global_set.setLayout(self.global_set_layout)
+
+        # part 2 - custom script
+        self.custom_script_layout = QHBoxLayout()
+        self.gb_custom.setLayout(self.custom_script_layout)
+
         self.line_url = QLineEdit()
 
         icon_search = QIcon()
@@ -1303,6 +1685,12 @@ class WebScript(QMainWindow):
         self.search_btn.setMaximumWidth(35)
         self.search_btn.setIcon(QIcon(icon_search))
 
+        self.custom_script_layout.addWidget(self.line_url)
+        self.custom_script_layout.addWidget(self.search_btn)
+
+        # part 3 - description 
+        self.description_layout = QHBoxLayout()
+        self.gb_desc.setLayout(self.description_layout)
         self.script_description = QTextBrowser()
         self.script_description.setPlaceholderText("Script description...")
         self.script_description.setReadOnly(True)
@@ -1312,46 +1700,109 @@ class WebScript(QMainWindow):
         self.script_description.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
         self.script_description.setOpenLinks(False)
 
+        self.description_layout.addWidget(self.script_description)
+
         self.save_btn = QPushButton("Save script")
         self.save_btn.setDisabled(True)
         self.pbar = QProgressBar()
         self.pbar.setRange(0, 1)
         self.pbar.setDisabled(True)
+        
+        self.scripts_data_layout.addWidget(self.gb_custom)
+        self.scripts_data_layout.addWidget(self.gb_global_set)
+        
 
-        self.layout.addWidget(self.label_url, 0, 0, 1, 1)
-        self.layout.addWidget(self.line_url, 0, 1, 1, 3)
-        self.layout.addWidget(self.search_btn, 0, 4, 1, 1)
-        self.layout.addWidget(self.script_description, 1, 0, 1, 5)
-        self.layout.addWidget(self.save_btn, 2, 0, 1, 5)
-        self.layout.addWidget(self.pbar, 3, 0, 1, 5)
+        self.data_layout.addLayout(self.scripts_data_layout)
+        self.data_layout.addWidget(self.gb_desc)
 
-        self.layout.setColumnStretch(1, 1)
+        self.global_layout.addLayout(self.data_layout)
+        self.global_layout.addWidget(self.save_btn)
+        self.global_layout.addWidget(self.pbar)
 
-        centralWidget.setLayout(self.layout)
+        centralWidget.setLayout(self.global_layout)
+
         self.setCentralWidget(centralWidget)
 
         self.line_url.returnPressed.connect(self.find_script)
         self.search_btn.clicked.connect(self.find_script)
         self.save_btn.clicked.connect(self.save_script)
+        self.upd_btn.clicked.connect(self.get_script_set)
+        self.set_widget.itemClicked.connect(self.get_description)
 
+        self.get_script_set()
         self.show()
+    
+    def showEvent(self, event):
+        qtRectangle = self.frameGeometry()
+        self.move(int(self.screen_params.get('center_x', 0)-qtRectangle.width()/2), int(self.screen_params.get('center_y', 0)-qtRectangle.height()/2))
+        h_line = self.line_url.geometry().height()
+        self.search_btn.setMinimumHeight(h_line)
+        super().showEvent(event)
+        return 
+    
+    def block_widgets(self, mode):
+        self.centralWidget().setDisabled(mode)
+
+    def get_description(self, item):
+        self.block_widgets(True)
+        if self.worker_script:
+            self.worker_script.deleteLater()
+
+        url = item.data(Qt.ItemDataRole.UserRole).strip().lower()
+        self.tool_name = '{}.py'.format(item.text()) if not item.text().endswith('.py') else item.text()
+
+        self.pbar.setRange(0, 0)
+        self.pbar.setDisabled(False)
+
+        self.worker_script = WebScriptCheck(url)
+        self.worker_script.data_loaded.connect(self.on_data_loaded)
+        self.worker_script.start()
+
+
+    def get_script_set(self):
+        if not self.main_tool.webscript_custom_set:
+            return
+        self.block_widgets(True)
+        if self.worker_script:
+            self.worker_script.deleteLater()
+
+        self.worker_script = WebScriptCheck(self.main_tool.webscript_custom_set)
+        self.worker_script.data_loaded.connect(self.on_ks_data_loaded)
+        self.worker_script.start()
+
+    def on_ks_data_loaded(self, script_bundle):
+        items = script_bundle.get('script_content', None)
+        if items:
+            items_dict = json.loads(items)
+            self.set_widget.clear()
+            for item in items_dict:
+                if type(item) == dict:
+                    item_id = item.get('id', None)
+                    item_url = item.get('url', None)
+                    if item_id and item_url:
+                        item = QListWidgetItem(item_id)
+                        item.setData(Qt.ItemDataRole.UserRole, item_url)
+                        self.set_widget.addItem(item)
+        else:
+            self.gb_global_set.setTitle("Scripts set (not available)")
+            self.gb_global_set.setDisabled(True)
+            # self.warning_message("Url\n{}\nis not valid or script list is empty.".format(self.main_tool.webscript_custom_set))
+        self.block_widgets(False)
 
     def on_link_clicked(self, url):
         if url.scheme() in ["http", "https", "www", "file"]:
             QDesktopServices.openUrl(url)
 
-    def showEvent(self, event):
-        h_line = self.line_url.geometry().height()
-        self.search_btn.setMinimumHeight(h_line)
-        super().showEvent(event)
-
     def closeEvent(self, event):
         if self.worker_script:
-            self.worker_script.deleteLater()
+            self.worker_script.stop()
+            self.worker_script.quit()
+            self.worker_script.wait(2000)
+        self.worker_script = None
+        self.main_tool.web_script_get = None
 
     def save_script(self):
-        file_path = os.path.join(self.main_tool.wpath, self.tool_name)
-
+        file_path = os.path.join(self.main_tool.wpath, self.tool_name).lower()
         if self.tool_content:
             if os.path.isfile(file_path):
                 answer = self.warning_question(self.tool_name)
@@ -1363,6 +1814,7 @@ class WebScript(QMainWindow):
                 else:
                     return
             else:
+                
                 with open(file_path, "w", newline='') as f:
                     f.write(self.tool_content)
                 self.main_tool.get_actions(self.main_tool.model)
@@ -1393,11 +1845,15 @@ class WebScript(QMainWindow):
         msg.warning(self, "Warning", err_text)
 
     def find_script(self):
+        self.block_widgets(True)
         if self.worker_script:
             self.worker_script.deleteLater()
         url = self.line_url.text().strip()
         if not url:
             self.warning_message("Script name/URL is empty")
+            if self.worker_script:
+                self.worker_script.deleteLater()
+            self.worker_script = None
             return
 
         self.pbar.setRange(0, 0)
@@ -1435,6 +1891,7 @@ class WebScript(QMainWindow):
 
         self.pbar.setRange(0, 1)
         self.pbar.setDisabled(True)
+        self.block_widgets(False)
         return
 
 
@@ -1448,6 +1905,14 @@ class KolbaDockWidget(QDockWidget):
         self.setWindowFlags(Qt.WindowType.Tool)
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         self.setWindowTitle("Kolba")
+
+        # config 
+        global global_stylesheet
+        self.kolba_all_cfg, self.kolba_descriptions = read_cfg(cfg_file)
+        if self.kolba_all_cfg.get('theme', None):
+            global_stylesheet = kolba_theme
+        else:
+            global_stylesheet = kolba_no_theme
 
         # variables
         self.overlay = None
@@ -1596,12 +2061,41 @@ class KolbaDockWidget(QDockWidget):
             'theme': self.kolba_widget.theme,
             'theme_opacity': self.kolba_widget.theme_opacity,
             'splitter_orientation': self.kolba_widget.tw_orientation,
-            'webscript_default_location_url': self.kolba_widget.webscript_default_location_url
+            'webscript_default_location_url': self.kolba_widget.webscript_default_location_url,
+            'webscript_custom_set': self.kolba_widget.webscript_custom_set,
+            'bookmarks': self.kolba_widget.bookmarks
         }
 
         with open(cfg_file, "w", encoding='utf-8') as d:
             json.dump(new_config, d, indent=4, ensure_ascii=False)
 
+
+class ScrollingWidget(QWidget):
+    def __init__(self, parent=None):
+        super(ScrollingWidget, self).__init__(parent)
+        self.s_area = parent
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.setMouseTracking(True)
+
+    def wheelEvent(self, event):
+        current_value = self.s_area.horizontalScrollBar().value()
+        if event.angleDelta().y()<0:
+            self.s_area.horizontalScrollBar().setValue(current_value+20)
+        else:
+            self.s_area.horizontalScrollBar().setValue(current_value-20)
+    
+
+class HorizontalScrollArea(QScrollArea):
+
+    def sizeHint(self):
+        if self.widget():
+            h = self.widget().sizeHint().height()
+            return QSize(super().sizeHint().width(), h)
+        return super().sizeHint()
+
+    def minimumSizeHint(self):
+        return self.sizeHint()
+    
 
 class KolbaWidget(QWidget):
     """ Main widget tab tool
@@ -1615,7 +2109,7 @@ class KolbaWidget(QWidget):
     def initUI(self):
         global global_stylesheet
         # configs
-        self.all_cfg, self.descriptions = read_cfg(cfg_file)
+        self.all_cfg, self.descriptions = self.main_win.kolba_all_cfg, self.main_win.kolba_descriptions
         QgsApplication.instance().aboutToQuit.connect(self.main_win.write_new_cfg)
 
         self.wpath = self.all_cfg['path']
@@ -1624,11 +2118,14 @@ class KolbaWidget(QWidget):
         self.theme = self.all_cfg.get('theme', False)
         self.theme_opacity = self.all_cfg.get('theme_opacity', 0.0)
         self.tw_orientation = self.all_cfg.get('splitter_orientation', "Horizontal")
-        self.webscript_default_location_url = self.all_cfg.get('webscript_default_location_url',
-                                                               "https://gisworks.ru/qgis_tools")
+        self.webscript_default_location_url = self.all_cfg.get('webscript_default_location_url', "https://gisworks.ru/qgis_tools")
+        self.webscript_custom_set = self.all_cfg.get('webscript_custom_set', "https://gisworks.ru/kolba_set.json")
+        self.bookmarks = self.all_cfg.get('bookmarks', {})
         self.current_version = None
         self.webscript_content = None
         self.webscript_metadata = None
+        self.web_script_get = None
+        self.selected_bookmark = None
 
         if self.theme:
             global_stylesheet = kolba_theme
@@ -1641,6 +2138,50 @@ class KolbaWidget(QWidget):
         self.path_line.setPlaceholderText('path to scripts...')
         self.path_line.setText(self.wpath)
         self.menu = QMenu(self)
+
+        # 2 - dynamic bookmarks
+        self.scroll_bookmarks = HorizontalScrollArea()
+        self.scroll_bookmarks.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.scroll_bookmarks.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.scroll_bookmarks.setFrameShape(QFrame.Shape.NoFrame)
+        self.scroll_bookmarks.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
+
+        self.scroll_bookmarks.setWidgetResizable(False) 
+        self.scroll_bookmarks.setContentsMargins(0, 0, 0, 0)
+
+        self.scroll_bookmark_container = ScrollingWidget(self.scroll_bookmarks)  
+        self.scroll_bookmark_container.setContentsMargins(0, 0, 0, 0)
+
+        self.scroll_bookmarks.setWidget(self.scroll_bookmark_container)
+                
+        self.bookmarks_layout = QHBoxLayout(self.scroll_bookmark_container) 
+        self.bookmarks_layout.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        self.bookmarks_layout.setContentsMargins(0, 0, 0, 0)
+        self.bookmarks_layout.setSpacing(5) 
+        
+
+
+        # 2.1 - tabs/bookmarks merged in separate widget
+        self.widget_tabs = QWidget(self)
+        self.widget_tabs.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
+
+        self.buttons_bookmark_layout = QHBoxLayout()
+        self.buttons_bookmark_layout.addWidget(self.scroll_bookmarks)
+        self.buttons_bookmark_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        self.widget_tabs.setLayout(self.buttons_bookmark_layout)
+        
+
+        
+        self.bookmarks_layout.setContentsMargins(0, 0, 0, 0)
+        self.buttons_bookmark_layout.setContentsMargins(0, 0, 0, 0)
+        self.buttons_bookmark_layout.setSpacing(0)
+        
+        self.scroll_bookmarks.setAutoFillBackground(False)
+        self.scroll_bookmark_container.setAutoFillBackground(False)
+        self.scroll_bookmarks.setStyleSheet("QScrollArea { background: transparent; background-color: transparent; }")
+        self.scroll_bookmark_container.setStyleSheet("ScrollingWidget { background: transparent; background-color: transparent; }")
+
+        
 
         # 2 - scripts list viewer
         self.dataView = HoverButtonTreeView(self)
@@ -1695,16 +2236,17 @@ class KolbaWidget(QWidget):
 
         # 4 - running button (a kind of deprecated but still can be used)
         self.btn_run = QPushButton()
+        self.btn_run.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_run.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay))
         self.btn_run.setStyleSheet(global_stylesheet['run_button'])
 
         # 5 - layout settings
         h_layout = QVBoxLayout(self)  # main layout for all widgets
         h_layout.setContentsMargins(5, 3, 5, 5)
-        h_layout.addWidget(self.path_line)
-        h_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-        h_layout.addWidget(self.frame_content, stretch=1)
-        h_layout.addWidget(self.btn_run)
+        h_layout.addWidget(self.path_line, 0)
+        h_layout.addWidget(self.widget_tabs, 0, Qt.AlignmentFlag.AlignTop)
+        h_layout.addWidget(self.frame_content, 1)
+        h_layout.addWidget(self.btn_run, 0)
         h_layout.setStretchFactor(content_layout, 2)
 
         # check if path is enabled
@@ -1732,6 +2274,86 @@ class KolbaWidget(QWidget):
         self.add_recent_paths()
         self.get_actions(self.model)
         self.dataView.installEventFilter(self)
+    
+    def showEvent(self, event):
+        
+        super().showEvent(event)
+        self.add_bookmarks()
+        if self.selected_bookmark:
+            hbar = self.scroll_bookmarks.horizontalScrollBar()
+            target_scroll_position = max(0, self.selected_bookmark.x() - 50)
+            hbar.setValue(target_scroll_position)
+            QtCore.QCoreApplication.processEvents()
+            QTimer.singleShot(0, lambda: self.scroll_bookmarks.ensureWidgetVisible(self.selected_bookmark, 50, 0))
+            QtCore.QCoreApplication.processEvents()
+            # selected_bookmark.parent().s_area.ensureWidgetVisible(selected_bookmark)
+        
+    def add_bookmarks(self):
+        bm_list = []
+        self.selected_bookmark = None
+        for btn in self.scroll_bookmark_container.findChildren(QPushButton):
+            btn.setParent(None)
+            btn.deleteLater()
+        for bookmark_name, bookmark_path_data in self.bookmarks.items():
+            bookmark_path = bookmark_path_data[0]
+            bookmark_enabled = bookmark_path_data[1]
+            if bookmark_enabled:
+                btn = QPushButton(bookmark_name)
+                btn.setCursor(Qt.CursorShape.PointingHandCursor)
+                btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred) 
+                btn.setStyleSheet(global_stylesheet['bookmark_button'])
+                btn.setCheckable(True)
+                btn.setToolTip(bookmark_path)
+                # btn.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Maximum)
+                font_metrics = btn.fontMetrics()
+                calculated_height = font_metrics.height() + 10 
+                btn.setMaximumHeight(calculated_height) 
+                if os.path.abspath(bookmark_path) == os.path.abspath(self.wpath):
+                    self.selected_bookmark = btn
+                    btn.setChecked(True)
+                    btn.setCursor(Qt.CursorShape.ArrowCursor)
+                btn.clicked.connect(lambda checked, path=bookmark_path: self.load_bookmark(path))
+                
+                self.bookmarks_layout.addWidget(btn)
+                btn.show()
+                bm_list.append(btn)
+        if not bm_list:
+            self.widget_tabs.hide()
+        else:
+            self.widget_tabs.show()
+            self.scroll_bookmark_container.adjustSize()
+            self.scroll_bookmarks.updateGeometry()
+            self.widget_tabs.updateGeometry()
+            self.widget_tabs.repaint()
+            # self.bookmarks_layout.setContentsMargins(0, 0, 0, 0)
+            # self.buttons_bookmark_layout.setContentsMargins(0, 0, 0, 0)
+            # self.buttons_bookmark_layout.setSpacing(0)
+            self.scroll_bookmark_container.adjustSize()
+            QtCore.QCoreApplication.processEvents()
+            for btn in self.scroll_bookmark_container.findChildren(QPushButton):
+                btn.updateGeometry()
+                QtCore.QCoreApplication.processEvents()
+        
+            
+        return bm_list
+
+    def bookmarks_check(self, path):
+        for btn in self.scroll_bookmark_container.findChildren(QPushButton):
+            if os.path.abspath(btn.toolTip()) == os.path.abspath(path):
+                btn.setChecked(True)
+                btn.setCursor(Qt.CursorShape.ArrowCursor)
+            else:
+                btn.setChecked(False)
+                btn.setCursor(Qt.CursorShape.PointingHandCursor)
+    
+    def load_bookmark(self, bookmark_path):
+        self.bookmarks_check(bookmark_path)
+        if not os.path.isdir(bookmark_path):
+            self.warning_message("bookmark path is wrong")
+            return
+        self.path_line.setText(bookmark_path)
+        self.get_actions(self.model)
+        self.description_area.setHtml('<b></b>')
 
     def on_link_clicked(self, url):
         if url.scheme() in ["http", "https", "www", "file"]:
@@ -1782,7 +2404,10 @@ class KolbaWidget(QWidget):
         if not self.wpath or not os.path.isdir(self.wpath) or not is_writable(self.wpath):
             self.warning_message('Define script path first.\nThe current one is wrong/empty/protected from writing.')
             return
-        self.web_script_get = WebScript(self)
+        if not self.web_script_get:
+            self.web_script_get = WebScript(self)
+        else:
+            self.web_script_get.showNormal()    
 
     def add_recent_paths(self):
         for action in self.menu.actions():
@@ -1796,6 +2421,7 @@ class KolbaWidget(QWidget):
         self.path_line.setText(os.path.realpath(path))
         self.get_actions(self.model)
         self.description_area.setHtml('<b></b>')
+        self.bookmarks_check(path)
 
     def show_menu(self):
         global_pos = self.path_line.cb_open.mapToGlobal(QtCore.QPoint(0, 15))
@@ -1874,9 +2500,10 @@ class KolbaWidget(QWidget):
         default_path = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DocumentsLocation)
         dialog.setDirectory(default_path)
 
-        result = dialog.getExistingDirectoryUrl(self, "Select a folder with scripts")
+        result = dialog.getExistingDirectory(self, "Select a folder with scripts")
         if result:
-            selected_path = result.toLocalFile().strip()
+            # selected_path = result.toLocalFile().strip()
+            selected_path = result.strip()
             if selected_path:
                 self.wpath = os.path.realpath(selected_path)
             else:
@@ -1887,6 +2514,7 @@ class KolbaWidget(QWidget):
 
     def get_actions(self, model):
         current_path = self.path_line.text()
+        self.bookmarks_check(current_path)
 
         # notify when path is wrong
         if not os.path.isdir(current_path) and current_path:
@@ -1971,18 +2599,29 @@ class WebScriptCheck(QThread):
     data_loaded = pyqtSignal(dict)
 
     def __init__(self, script_url):
-        self.script_url = script_url
         super().__init__()
+        self.script_url = script_url.lower()
+        self._is_running = True
+        
 
     def run(self):
         data = {'script_content': None, 'script_metadata': {}}
         with requests.Session() as session:
-            response = session.get(self.script_url, verify=False, timeout=5)
-            if response.status_code == 200:
-                metadata = extract_metadata(response.text)
-                data['script_content'] = response.text
-                data['script_metadata'] = metadata
-        self.data_loaded.emit(data)
+            try:
+                response = session.get(self.script_url, verify=False, timeout=5)
+                if not self._is_running:
+                    return 
+                if response.status_code == 200:
+                    metadata = extract_metadata(response.text)
+                    data['script_content'] = response.text
+                    data['script_metadata'] = metadata
+            except Exception as e:
+                print(f"Error occurred while fetching URL: {e}")
+        if self._is_running:
+            self.data_loaded.emit(data)
+
+    def stop(self):
+        self._is_running = False
 
 # dockwidget = KolbaDockWidget(None)
 # dockwidget.setFloating(False)

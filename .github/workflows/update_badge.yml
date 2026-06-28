@@ -5,8 +5,10 @@ on:
     - cron: '0 0,12 * * *'
   workflow_dispatch:
 
+# Исправляем права: явно разрешаем и запись, и сетевые запросы к API
 permissions:
   contents: write
+  id-token: write
 
 jobs:
   update-badge:
@@ -20,44 +22,52 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Fetch downloads from QGIS
-        env:
-          PLUGIN_ID: "4321" 
-        run: |
-          import urllib.request
-          import json
-          import os
+      # Устанавливаем библиотеку requests, так как её нет в голом Python по умолчанию
+      - name: Install dependencies
+        run: pip install requests
 
-          plugin_id = os.environ['PLUGIN_ID']
-          url = f"https://qgis.org{plugin_id}/"
-          
-          # Отправляем запрос с заголовком User-Agent, чтобы сервер не блокировал нас
-          req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'})
-          
+      - name: Fetch downloads from QGIS
+        run: |
+          import requests
+          import xml.etree.ElementTree as ET
+          import json
+
           try:
-              with urllib.request.urlopen(req) as response:
-                  json_data = json.loads(response.read().decode('utf-8'))
-              
-              # Напрямую забираем число скачиваний из JSON
-              downloads_count = str(json_data.get('downloads', 0))
-              print(f"Found downloads: {downloads_count}")
-              
+              # Ваш отличный вариант получения XML через requests
+              response = requests.get("https://plugins.qgis.org/plugins/plugins.xml?qgis=3.36", timeout=15)
+              xml = response.text
+
+              root = ET.fromstring(xml)
+              downloads = None
+
+              for plugin in root.findall("pyqgis_plugin"):
+                  if plugin.attrib.get("plugin_id") == "4321":
+                      downloads = plugin.findtext("downloads")
+                      break
+
+              print(f"Found downloads: {downloads}")
+
+              if downloads is None:
+                  downloads = "0"
+
+              # Формируем структуру для Shields.io
               badge_data = {
                   "schemaVersion": 1,
                   "label": "qgis downloads",
-                  "message": downloads_count,
+                  "message": str(downloads),
                   "color": "blue"
               }
-              
+
+              # Сохраняем локально
               with open("qgis_stats.json", "w") as f:
                   json.dump(badge_data, f, indent=2)
-                  
+
           except Exception as e:
-              print(f"Error fetching data from QGIS API: {e}")
+              print(f"Error: {e}")
               exit(1)
         shell: python
 
-      # Отправляем локальный файл в Gist через официальное готовое действие
+      # Отправляем в ваш Gist
       - name: Update Gist
         uses: exuanbo/actions-deploy-gist@v1
         with:

@@ -2,10 +2,13 @@ name: Update QGIS Plugin Downloads Badge
 
 on:
   schedule:
-    # each 12 hours
     - cron: '0 0,12 * * *'
-  workflow_dispatch: 
+  workflow_dispatch:
 
+permissions:
+  contents: write
+  statuses: write
+  
 jobs:
   update-badge:
     runs-on: ubuntu-latest

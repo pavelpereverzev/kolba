@@ -1,4 +1,5 @@
-[![en](https://img.shields.io/badge/lang-ru-red.svg)](https://github.com/pavelpereverzev/kolba/blob/main/README.ru.md) 
+[![en](https://img.shields.io/badge/lang-ru-red.svg)](https://github.com/pavelpereverzev/kolba/blob/main/README.ru.md)  
+![Plugin Downloads](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/pavelpereverzev/9d19f363ecd61bdc1e4db883e10df578/raw/qgis_stats.json&label=Downloads&color=brightgreen&style=flat-square)
 
 # Kolba
 

@@ -7,8 +7,7 @@ on:
 
 permissions:
   contents: write
-  statuses: write
-  
+
 jobs:
   update-badge:
     runs-on: ubuntu-latest
@@ -21,19 +20,16 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Fetch downloads and update Gist
+      - name: Fetch downloads from QGIS
         env:
-          GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
-          GIST_ID: "9d19f363ecd61bdc1e4db883e10df578" 
-          PLUGIN_ID: "4321" 
+          PLUGIN_ID: "4321" # Убедитесь, что тут ID вашего плагина
         run: |
-          import os
           import urllib.request
           import json
           import xml.etree.ElementTree as ET
+          import os
 
-          # 1. XML QGIS plugins
-          url = "https://plugins.qgis.org/plugins/plugins.xml?qgis=4.0"
+          url = "https://qgis.org"
           req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
           
           try:
@@ -52,7 +48,6 @@ jobs:
               
               print(f"Found downloads: {downloads_count}")
               
-              # 2. JSON of Shields.io
               badge_data = {
                   "schemaVersion": 1,
                   "label": "qgis downloads",
@@ -60,32 +55,20 @@ jobs:
                   "color": "blue"
               }
               
-              # 3. send JSON to GitHub Gist 
-              gist_id = os.environ['GIST_ID']
-              gist_url = f"https://github.com{gist_id}"
-              
-              payload = {
-                  "files": {
-                      "qgis_stats.json": {
-                          "content": json.dumps(badge_data, indent=2)
-                      }
-                  }
-              }
-              
-              gist_req = urllib.request.Request(
-                  gist_url,
-                  data=json.dumps(payload).encode('utf-8'),
-                  headers={
-                      "Authorization": f"Bearer {os.environ['GIST_TOKEN']}",
-                      "Content-Type": "application/json"
-                  },
-                  method="PATCH"
-              )
-              
-              with urllib.request.urlopen(gist_req) as res:
-                  print("Gist successfully updated!", res.status)
+              # Просто сохраняем файл локально на диск виртуальной машины
+              with open("qgis_stats.json", "w") as f:
+                  json.dump(badge_data, f, indent=2)
                   
           except Exception as e:
-              print(f"Error occurred: {e}")
+              print(f"Error: {e}")
               exit(1)
         shell: python
+
+      # Отправляем локальный файл в Gist через официальное готовое действие
+      - name: Update Gist
+        uses: exuanbo/actions-deploy-gist@v1
+        with:
+          token: ${{ secrets.GIST_TOKEN }}
+          gist_id: 9d19f363ecd61bdc1e4db883e10df578
+          file_path: qgis_stats.json
+          file_type: text

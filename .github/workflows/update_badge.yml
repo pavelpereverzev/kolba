@@ -22,30 +22,24 @@ jobs:
 
       - name: Fetch downloads from QGIS
         env:
-          PLUGIN_ID: "4321" # Убедитесь, что тут ID вашего плагина
+          PLUGIN_ID: "4321" 
         run: |
           import urllib.request
           import json
-          import xml.etree.ElementTree as ET
           import os
 
-          url = "https://qgis.org"
-          req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+          plugin_id = os.environ['PLUGIN_ID']
+          url = f"https://qgis.org{plugin_id}/"
+          
+          # Отправляем запрос с заголовком User-Agent, чтобы сервер не блокировал нас
+          req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'})
           
           try:
               with urllib.request.urlopen(req) as response:
-                  xml_data = response.read()
+                  json_data = json.loads(response.read().decode('utf-8'))
               
-              root = ET.fromstring(xml_data)
-              downloads_count = "0"
-              
-              for plugin in root.findall('pyqgis_plugin'):
-                  if plugin.get('plugin_id') == os.environ['PLUGIN_ID']:
-                      download_node = plugin.find('downloads')
-                      if download_node is not None:
-                          downloads_count = download_node.text
-                      break
-              
+              # Напрямую забираем число скачиваний из JSON
+              downloads_count = str(json_data.get('downloads', 0))
               print(f"Found downloads: {downloads_count}")
               
               badge_data = {
@@ -55,12 +49,11 @@ jobs:
                   "color": "blue"
               }
               
-              # Просто сохраняем файл локально на диск виртуальной машины
               with open("qgis_stats.json", "w") as f:
                   json.dump(badge_data, f, indent=2)
                   
           except Exception as e:
-              print(f"Error: {e}")
+              print(f"Error fetching data from QGIS API: {e}")
               exit(1)
         shell: python
 

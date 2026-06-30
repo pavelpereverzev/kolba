@@ -5,7 +5,6 @@ on:
     - cron: '0 0,12 * * *'
   workflow_dispatch:
 
-# Исправляем права: явно разрешаем и запись, и сетевые запросы к API
 permissions:
   contents: write
   id-token: write
@@ -22,7 +21,7 @@ jobs:
         with:
           python-version: '3.10'
 
-      # Устанавливаем библиотеку requests, так как её нет в голом Python по умолчанию
+      # get requests
       - name: Install dependencies
         run: pip install requests
 
@@ -33,8 +32,8 @@ jobs:
           import json
 
           try:
-              # Ваш отличный вариант получения XML через requests
-              response = requests.get("https://plugins.qgis.org/plugins/plugins.xml?qgis=3.36", timeout=15)
+              # get xml
+              response = requests.get("https://plugins.qgis.org/plugins/plugins.xml?qgis=4.0", timeout=15, verify=False)
               xml = response.text
 
               root = ET.fromstring(xml)
@@ -50,7 +49,7 @@ jobs:
               if downloads is None:
                   downloads = "0"
 
-              # Формируем структуру для Shields.io
+              # make a structure for shields.io
               badge_data = {
                   "schemaVersion": 1,
                   "label": "qgis downloads",
@@ -58,7 +57,7 @@ jobs:
                   "color": "blue"
               }
 
-              # Сохраняем локально
+              # save into file
               with open("qgis_stats.json", "w") as f:
                   json.dump(badge_data, f, indent=2)
 
@@ -67,7 +66,7 @@ jobs:
               exit(1)
         shell: python
 
-      # Отправляем в ваш Gist
+      # send to gist
       - name: Update Gist
         uses: exuanbo/actions-deploy-gist@v1
         with:

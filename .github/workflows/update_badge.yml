@@ -74,3 +74,10 @@ jobs:
           gist_id: 9d19f363ecd61bdc1e4db883e10df578
           file_path: qgis_stats.json
           file_type: text
+      - name: Delete old workflow runs
+        uses: Mattraks/delete-workflow-runs@v2
+        with:
+          token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          retain_days: 0
+          keep_minimum_runs: 1

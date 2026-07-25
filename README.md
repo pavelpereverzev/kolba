@@ -4,7 +4,7 @@
 # Kolba
 
 <p align="center">
-<img src="https://gisworks.ru/qgis_tools/img/kolba_window.png?new=true" 
+<img src="https://gisworks.ru/qgis_tools/img/kolba_window.png?new=true1" 
        width="auto">
 </p>
 
@@ -52,7 +52,8 @@ For example there is a script which can be run from Python console:
 
 ```
 from qgis.utils import iface
-from qgis.PyQt.QtWidgets import QWidget, QPushButton, QVBoxLayout
+from qgis._core import *
+from qgis.PyQt.QtWidgets import QWidget, QPushButton, QVBoxLayout, QMessageBox
 
 class TestWidget(QWidget):
     def __init__(self):
@@ -62,15 +63,21 @@ class TestWidget(QWidget):
         layout = QVBoxLayout(self)
         button = QPushButton("Check active layer")
         layout.addWidget(button)
-        button.clicked.connect(self.get_current_layer)
+        button.clicked.connect(self.get_layers)
         self.show()
 
-    def get_current_layer(self):
-        active_layer = iface.activeLayer()
-        if active_layer:
-            print(active_layer.name())
-        else:
-            print('no layers in project')
+    def get_layers(self):
+        layers_data = [
+            '{}: {}'.format(l.name(), l.featureCount()) 
+            for l in QgsProject.instance().layerTreeRoot().layerOrder()
+            if type(l) == QgsVectorLayer and l.isValid()
+        ]
+        message = "No vector layers in project"
+        if layers_data:
+            message = '\n'.join(layers_data)
+    
+        QMessageBox.information(None, "Layers info", message)
+
 app = TestWidget()
 ```
 >[!NOTE]
@@ -97,7 +104,8 @@ These strings make it safe to run scripts within Kolba or outside of it.
 Completed example:
 ```
 from qgis.utils import iface
-from qgis.PyQt.QtWidgets import QWidget, QPushButton, QVBoxLayout
+from qgis._core import *
+from qgis.PyQt.QtWidgets import QWidget, QPushButton, QVBoxLayout, QMessageBox
 
 class TestWidget(QWidget):
     def __init__(self):
@@ -107,16 +115,21 @@ class TestWidget(QWidget):
         layout = QVBoxLayout(self)
         button = QPushButton("Check active layer")
         layout.addWidget(button)
-        button.clicked.connect(self.get_current_layer)
+        button.clicked.connect(self.get_layers)
         self.show()
         (script_name:=globals().get("script_name")) and hasattr(iface,"kolba_plugin") and iface.kolba_plugin.__setitem__(script_name, self) # widget is stored in Kolba dict, so it won't open more than one time
 
-    def get_current_layer(self):
-        active_layer = iface.activeLayer()
-        if active_layer:
-            print(active_layer.name())
-        else:
-            print('no layers in project')
+    def get_layers(self):
+        layers_data = [
+            '{}: {}'.format(l.name(), l.featureCount()) 
+            for l in QgsProject.instance().layerTreeRoot().layerOrder()
+            if type(l) == QgsVectorLayer and l.isValid()
+        ]
+        message = "No vector layers in project"
+        if layers_data:
+            message = '\n'.join(layers_data)
+    
+        QMessageBox.information(None, "Layers info", message)
 
     def closeEvent(self, event):
         (script_name:=globals().get("script_name")) and hasattr(iface,"kolba_plugin") and iface.kolba_plugin.__setitem__(script_name, None) # widget is reset in Kolba dict, so it is ready for re-run
@@ -170,7 +183,8 @@ original_url: https://gisworks.ru/qgis_tools/my_widget.py
 """
 
 from qgis.utils import iface
-from qgis.PyQt.QtWidgets import QWidget, QPushButton, QVBoxLayout
+from qgis._core import *
+from qgis.PyQt.QtWidgets import QWidget, QPushButton, QVBoxLayout, QMessageBox
 
 class TestWidget(QWidget):
     def __init__(self):
@@ -180,19 +194,26 @@ class TestWidget(QWidget):
         layout = QVBoxLayout(self)
         button = QPushButton("Check active layer")
         layout.addWidget(button)
-        button.clicked.connect(self.get_current_layer)
+        button.clicked.connect(self.get_layers)
         self.show()
-        (script_name:=globals().get("script_name")) and hasattr(iface,"kolba_plugin") and iface.kolba_plugin.__setitem__(script_name, self) = self # widget is stored in Kolba dict, so it won't open more than one time
+        (script_name:=globals().get("script_name")) and hasattr(iface,"kolba_plugin") and iface.kolba_plugin.__setitem__(script_name, self) # widget is stored in Kolba dict, so it won't open more than one time
 
-    def get_current_layer(self):
-        active_layer = iface.activeLayer()
-        if active_layer:
-            print(active_layer.name())
-        else:
-            print('no layers in project')
+    def get_layers(self):
+        layers_data = [
+            '{}: {}'.format(l.name(), l.featureCount()) 
+            for l in QgsProject.instance().layerTreeRoot().layerOrder()
+            if type(l) == QgsVectorLayer and l.isValid()
+        ]
+        message = "No vector layers in project"
+        if layers_data:
+            message = '\n'.join(layers_data)
+    
+        QMessageBox.information(None, "Layers info", message)
 
     def closeEvent(self, event):
         (script_name:=globals().get("script_name")) and hasattr(iface,"kolba_plugin") and iface.kolba_plugin.__setitem__(script_name, None) # widget is reset in Kolba dict, so it is ready for re-run
+
+app = TestWidget()
 ```
 
 You can also upload script to some hosting and let other users to download it directly from Kolba.

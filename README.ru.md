@@ -3,7 +3,7 @@
 # Колба
 
 <p align="center">
-<img src="https://gisworks.ru/qgis_tools/img/kolba_window.png?new=true" 
+<img src="https://gisworks.ru/qgis_tools/img/kolba_window.png?new=true1" 
        width="auto">
 </p>
 
@@ -53,11 +53,12 @@
 Важно: в скрипте должны быть импортированы все необходимые модули (к примеру, если это виджет, то нужно импортировать все зависимости PyQt).
 Даже если что-то уже доступно в среде QGIS — импорт всё равно должен быть явно прописан в файле.
 
-Например, ниже скрипт, который может быть запущен консоли Python:
+Например, ниже скрипт, который может быть запущен в редакторе консоли Python:
 
 ```
 from qgis.utils import iface
-from qgis.PyQt.QtWidgets import QWidget, QPushButton, QVBoxLayout
+from qgis._core import *
+from qgis.PyQt.QtWidgets import QWidget, QPushButton, QVBoxLayout, QMessageBox
 
 class TestWidget(QWidget):
     def __init__(self):
@@ -67,15 +68,21 @@ class TestWidget(QWidget):
         layout = QVBoxLayout(self)
         button = QPushButton("Check active layer")
         layout.addWidget(button)
-        button.clicked.connect(self.get_current_layer)
+        button.clicked.connect(self.get_layers)
         self.show()
 
-    def get_current_layer(self):
-        active_layer = iface.activeLayer()
-        if active_layer:
-            print(active_layer.name())
-        else:
-            print('no layers in project')
+    def get_layers(self):
+        layers_data = [
+            '{}: {}'.format(l.name(), l.featureCount()) 
+            for l in QgsProject.instance().layerTreeRoot().layerOrder()
+            if type(l) == QgsVectorLayer and l.isValid()
+        ]
+        message = "No vector layers in project"
+        if layers_data:
+            message = '\n'.join(layers_data)
+    
+        QMessageBox.information(None, "Layers info", message)
+
 app = TestWidget()
 ```
 >[!NOTE]
@@ -101,7 +108,8 @@ app = TestWidget()
 Готовый пример:
 ```
 from qgis.utils import iface
-from qgis.PyQt.QtWidgets import QWidget, QPushButton, QVBoxLayout
+from qgis._core import *
+from qgis.PyQt.QtWidgets import QWidget, QPushButton, QVBoxLayout, QMessageBox
 
 class TestWidget(QWidget):
     def __init__(self):
@@ -111,19 +119,24 @@ class TestWidget(QWidget):
         layout = QVBoxLayout(self)
         button = QPushButton("Check active layer")
         layout.addWidget(button)
-        button.clicked.connect(self.get_current_layer)
+        button.clicked.connect(self.get_layers)
         self.show()
-        (script_name:=globals().get("script_name")) and hasattr(iface,"kolba_plugin") and iface.kolba_plugin.__setitem__(script_name, self) # виджет запиывается в словарь iface.kolba_plugin, поэтому не будет повторно открываться 
+        (script_name:=globals().get("script_name")) and hasattr(iface,"kolba_plugin") and iface.kolba_plugin.__setitem__(script_name, self) # widget is stored in Kolba dict, so it won't open more than one time
 
-    def get_current_layer(self):
-        active_layer = iface.activeLayer()
-        if active_layer:
-            print(active_layer.name())
-        else:
-            print('no layers in project')
+    def get_layers(self):
+        layers_data = [
+            '{}: {}'.format(l.name(), l.featureCount()) 
+            for l in QgsProject.instance().layerTreeRoot().layerOrder()
+            if type(l) == QgsVectorLayer and l.isValid()
+        ]
+        message = "No vector layers in project"
+        if layers_data:
+            message = '\n'.join(layers_data)
+    
+        QMessageBox.information(None, "Layers info", message)
 
     def closeEvent(self, event):
-        (script_name:=globals().get("script_name")) and hasattr(iface,"kolba_plugin") and iface.kolba_plugin.__setitem__(script_name, None) # виджет обнулен в словаре iface.kolba_plugin, и готов к повторному открытию
+        (script_name:=globals().get("script_name")) and hasattr(iface,"kolba_plugin") and iface.kolba_plugin.__setitem__(script_name, None) # widget is reset in Kolba dict, so it is ready for re-run
 
 app = TestWidget()
 ```
@@ -166,7 +179,8 @@ original_url: https://gisworks.ru/qgis_tools/my_widget.py
 """
 
 from qgis.utils import iface
-from qgis.PyQt.QtWidgets import QWidget, QPushButton, QVBoxLayout
+from qgis._core import *
+from qgis.PyQt.QtWidgets import QWidget, QPushButton, QVBoxLayout, QMessageBox
 
 class TestWidget(QWidget):
     def __init__(self):
@@ -176,19 +190,26 @@ class TestWidget(QWidget):
         layout = QVBoxLayout(self)
         button = QPushButton("Check active layer")
         layout.addWidget(button)
-        button.clicked.connect(self.get_current_layer)
+        button.clicked.connect(self.get_layers)
         self.show()
-        (script_name:=globals().get("script_name")) and hasattr(iface,"kolba_plugin") and iface.kolba_plugin.__setitem__(script_name, self) = self # виджет запиывается в словарь iface.kolba_plugin, поэтому не будет повторно открываться 
+        (script_name:=globals().get("script_name")) and hasattr(iface,"kolba_plugin") and iface.kolba_plugin.__setitem__(script_name, self) # widget is stored in Kolba dict, so it won't open more than one time
 
-    def get_current_layer(self):
-        active_layer = iface.activeLayer()
-        if active_layer:
-            print(active_layer.name())
-        else:
-            print('no layers in project')
+    def get_layers(self):
+        layers_data = [
+            '{}: {}'.format(l.name(), l.featureCount()) 
+            for l in QgsProject.instance().layerTreeRoot().layerOrder()
+            if type(l) == QgsVectorLayer and l.isValid()
+        ]
+        message = "No vector layers in project"
+        if layers_data:
+            message = '\n'.join(layers_data)
+    
+        QMessageBox.information(None, "Layers info", message)
 
     def closeEvent(self, event):
-        (script_name:=globals().get("script_name")) and hasattr(iface,"kolba_plugin") and iface.kolba_plugin.__setitem__(script_name, None) # виджет обнулен в словаре iface.kolba_plugin, и готов к повторному открытию
+        (script_name:=globals().get("script_name")) and hasattr(iface,"kolba_plugin") and iface.kolba_plugin.__setitem__(script_name, None) # widget is reset in Kolba dict, so it is ready for re-run
+
+app = TestWidget()
 ```
 Любой скрипт можно загрузить на веб-хостинг и предоставить возможность другим пользователям его скачать, а позже - запустить через Колбу.
 Скрипт не будет запускаться сразу после загрузки, у пользователя будет возможность ознакомиться с кодом.

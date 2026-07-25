@@ -61,12 +61,15 @@ from qgis._core import *
 from qgis.PyQt.QtWidgets import QWidget, QPushButton, QVBoxLayout, QMessageBox
 
 class TestWidget(QWidget):
+    """Get vector layers with feature count from current project
+    """
+
     def __init__(self):
         super().__init__()
         self.resize(250, 100)
         self.setWindowTitle("Test widget")
         layout = QVBoxLayout(self)
-        button = QPushButton("Check active layer")
+        button = QPushButton("Get layers info")
         layout.addWidget(button)
         button.clicked.connect(self.get_layers)
         self.show()
@@ -112,12 +115,15 @@ from qgis._core import *
 from qgis.PyQt.QtWidgets import QWidget, QPushButton, QVBoxLayout, QMessageBox
 
 class TestWidget(QWidget):
+    """Get vector layers with feature count from current project
+    """
+
     def __init__(self):
         super().__init__()
         self.resize(250, 100)
         self.setWindowTitle("Test widget")
         layout = QVBoxLayout(self)
-        button = QPushButton("Check active layer")
+        button = QPushButton("Get layers info")
         layout.addWidget(button)
         button.clicked.connect(self.get_layers)
         self.show()
@@ -183,12 +189,15 @@ from qgis._core import *
 from qgis.PyQt.QtWidgets import QWidget, QPushButton, QVBoxLayout, QMessageBox
 
 class TestWidget(QWidget):
+    """Get vector layers with feature count from current project
+    """
+
     def __init__(self):
         super().__init__()
         self.resize(250, 100)
         self.setWindowTitle("Test widget")
         layout = QVBoxLayout(self)
-        button = QPushButton("Check active layer")
+        button = QPushButton("Get layers info")
         layout.addWidget(button)
         button.clicked.connect(self.get_layers)
         self.show()

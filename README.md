@@ -51,35 +51,54 @@ Scripts which are run from Kolba should have all needed libraries imported in or
 For example there is a script which can be run from Python console:
 
 ```
-from qgis.utils import iface
 from qgis._core import *
-from qgis.PyQt.QtWidgets import QWidget, QPushButton, QVBoxLayout, QMessageBox
+from qgis.utils import iface
+from qgis.PyQt.QtCore import Qt
+from qgis.PyQt.QtWidgets import QMainWindow, QTableWidget, QTableWidgetItem, QPushButton, QVBoxLayout, QWidget, QHeaderView
 
-class TestWidget(QWidget):
+class TestWidget(QMainWindow):
     """Get vector layers with feature count from current project
     """
 
     def __init__(self):
-        super().__init__()
-        self.resize(250, 100)
-        self.setWindowTitle("Test widget")
-        layout = QVBoxLayout(self)
-        button = QPushButton("Get layers info")
+        super().__init__(parent=iface.mainWindow())
+        self.setWindowTitle("Vector layers stats")
+        self.resize(400, 300)
+        self.setWindowFlags(self.windowFlags() | Qt.WindowStaysOnTopHint)
+        self.setAttribute(Qt.WA_DeleteOnClose)
+
+        # container
+        container = QWidget()
+        self.setCentralWidget(container)
+        layout = QVBoxLayout(container)
+
+        # table
+        self.table = QTableWidget()
+        self.table.setColumnCount(2)
+        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)
+        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        self.table.setHorizontalHeaderLabels(["Layer name", "Feature count"])
+        layout.addWidget(self.table)
+
+        # update button
+        button = QPushButton("Update")
+        button.clicked.connect(self.fill_table)
+        
         layout.addWidget(button)
-        button.clicked.connect(self.get_layers)
+
         self.show()
 
-    def get_layers(self):
-        layers_data = [
-            '{}: {}'.format(l.name(), l.featureCount()) 
-            for l in QgsProject.instance().layerTreeRoot().layerOrder()
-            if type(l) == QgsVectorLayer and l.isValid()
+    def fill_table(self):
+        layers = [l for l 
+            in QgsProject.instance().layerTreeRoot().layerOrder() 
+            if isinstance(l, QgsVectorLayer)
         ]
-        message = "No vector layers in project"
-        if layers_data:
-            message = '\n'.join(layers_data)
-    
-        QMessageBox.information(None, "Layers info", message)
+        self.table.setRowCount(len(layers))
+        
+        for i, layer in enumerate(layers):
+            # fill layer and feature numbers
+            self.table.setItem(i, 0, QTableWidgetItem(layer.name()))
+            self.table.setItem(i, 1, QTableWidgetItem(str(layer.featureCount())))
 
 app = TestWidget()
 ```
@@ -106,36 +125,55 @@ These strings make it safe to run scripts within Kolba or outside of it.
 
 Completed example:
 ```
-from qgis.utils import iface
 from qgis._core import *
-from qgis.PyQt.QtWidgets import QWidget, QPushButton, QVBoxLayout, QMessageBox
+from qgis.utils import iface
+from qgis.PyQt.QtCore import Qt
+from qgis.PyQt.QtWidgets import QMainWindow, QTableWidget, QTableWidgetItem, QPushButton, QVBoxLayout, QWidget, QHeaderView
 
-class TestWidget(QWidget):
+class TestWidget(QMainWindow):
     """Get vector layers with feature count from current project
     """
 
     def __init__(self):
-        super().__init__()
-        self.resize(250, 100)
-        self.setWindowTitle("Test widget")
-        layout = QVBoxLayout(self)
-        button = QPushButton("Get layers info")
+        super().__init__(parent=iface.mainWindow())
+        self.setWindowTitle("Vector layers stats")
+        self.resize(400, 300)
+        self.setWindowFlags(self.windowFlags() | Qt.WindowStaysOnTopHint)
+        self.setAttribute(Qt.WA_DeleteOnClose)
+
+        # container
+        container = QWidget()
+        self.setCentralWidget(container)
+        layout = QVBoxLayout(container)
+
+        # table
+        self.table = QTableWidget()
+        self.table.setColumnCount(2)
+        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)
+        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        self.table.setHorizontalHeaderLabels(["Layer name", "Feature count"])
+        layout.addWidget(self.table)
+
+        # update button
+        button = QPushButton("Update")
+        button.clicked.connect(self.fill_table)
+        
         layout.addWidget(button)
-        button.clicked.connect(self.get_layers)
+
         self.show()
         (script_name:=globals().get("script_name")) and hasattr(iface,"kolba_plugin") and iface.kolba_plugin.__setitem__(script_name, self) # widget is stored in Kolba dict, so it won't open more than one time
 
-    def get_layers(self):
-        layers_data = [
-            '{}: {}'.format(l.name(), l.featureCount()) 
-            for l in QgsProject.instance().layerTreeRoot().layerOrder()
-            if type(l) == QgsVectorLayer and l.isValid()
+    def fill_table(self):
+        layers = [l for l 
+            in QgsProject.instance().layerTreeRoot().layerOrder() 
+            if isinstance(l, QgsVectorLayer)
         ]
-        message = "No vector layers in project"
-        if layers_data:
-            message = '\n'.join(layers_data)
-    
-        QMessageBox.information(None, "Layers info", message)
+        self.table.setRowCount(len(layers))
+        
+        for i, layer in enumerate(layers):
+            # fill layer and feature numbers
+            self.table.setItem(i, 0, QTableWidgetItem(layer.name()))
+            self.table.setItem(i, 1, QTableWidgetItem(str(layer.featureCount())))
 
     def closeEvent(self, event):
         (script_name:=globals().get("script_name")) and hasattr(iface,"kolba_plugin") and iface.kolba_plugin.__setitem__(script_name, None) # widget is reset in Kolba dict, so it is ready for re-run
@@ -188,36 +226,55 @@ author_mail: me@mail.com
 original_url: https://gisworks.ru/qgis_tools/my_widget.py
 """
 
-from qgis.utils import iface
 from qgis._core import *
-from qgis.PyQt.QtWidgets import QWidget, QPushButton, QVBoxLayout, QMessageBox
+from qgis.utils import iface
+from qgis.PyQt.QtCore import Qt
+from qgis.PyQt.QtWidgets import QMainWindow, QTableWidget, QTableWidgetItem, QPushButton, QVBoxLayout, QWidget, QHeaderView
 
-class TestWidget(QWidget):
+class TestWidget(QMainWindow):
     """Get vector layers with feature count from current project
     """
 
     def __init__(self):
-        super().__init__()
-        self.resize(250, 100)
-        self.setWindowTitle("Test widget")
-        layout = QVBoxLayout(self)
-        button = QPushButton("Get layers info")
+        super().__init__(parent=iface.mainWindow())
+        self.setWindowTitle("Vector layers stats")
+        self.resize(400, 300)
+        self.setWindowFlags(self.windowFlags() | Qt.WindowStaysOnTopHint)
+        self.setAttribute(Qt.WA_DeleteOnClose)
+
+        # container
+        container = QWidget()
+        self.setCentralWidget(container)
+        layout = QVBoxLayout(container)
+
+        # table
+        self.table = QTableWidget()
+        self.table.setColumnCount(2)
+        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)
+        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        self.table.setHorizontalHeaderLabels(["Layer name", "Feature count"])
+        layout.addWidget(self.table)
+
+        # update button
+        button = QPushButton("Update")
+        button.clicked.connect(self.fill_table)
+        
         layout.addWidget(button)
-        button.clicked.connect(self.get_layers)
+
         self.show()
         (script_name:=globals().get("script_name")) and hasattr(iface,"kolba_plugin") and iface.kolba_plugin.__setitem__(script_name, self) # widget is stored in Kolba dict, so it won't open more than one time
 
-    def get_layers(self):
-        layers_data = [
-            '{}: {}'.format(l.name(), l.featureCount()) 
-            for l in QgsProject.instance().layerTreeRoot().layerOrder()
-            if type(l) == QgsVectorLayer and l.isValid()
+    def fill_table(self):
+        layers = [l for l 
+            in QgsProject.instance().layerTreeRoot().layerOrder() 
+            if isinstance(l, QgsVectorLayer)
         ]
-        message = "No vector layers in project"
-        if layers_data:
-            message = '\n'.join(layers_data)
-    
-        QMessageBox.information(None, "Layers info", message)
+        self.table.setRowCount(len(layers))
+        
+        for i, layer in enumerate(layers):
+            # fill layer and feature numbers
+            self.table.setItem(i, 0, QTableWidgetItem(layer.name()))
+            self.table.setItem(i, 1, QTableWidgetItem(str(layer.featureCount())))
 
     def closeEvent(self, event):
         (script_name:=globals().get("script_name")) and hasattr(iface,"kolba_plugin") and iface.kolba_plugin.__setitem__(script_name, None) # widget is reset in Kolba dict, so it is ready for re-run

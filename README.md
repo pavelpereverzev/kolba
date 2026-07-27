@@ -50,7 +50,7 @@ Scripts which are run from Kolba should have all needed libraries imported in or
 
 For example there is a script which can be run from Python console:
 
-```
+```python
 from qgis._core import *
 from qgis.utils import iface
 from qgis.PyQt.QtCore import Qt
@@ -116,7 +116,7 @@ This variables can be used in some cases.
 For example, in a way to prevent widgets from opening them as multiple instances. Kolba is adding a new attribute for an `iface` object: `iface.kolba_plugin`. It is basically a dictionary which is used for keeping instances of running widgets. 
 So if you need to run only single instance of specific widget, add strings:
 
-```
+```python
 (script_name:=globals().get("script_name")) and hasattr(iface,"kolba_plugin") and iface.kolba_plugin.__setitem__(script_name, self) # - where widget is shown
 ...
 (script_name:=globals().get("script_name")) and hasattr(iface,"kolba_plugin") and iface.kolba_plugin.__setitem__(script_name, None) # - where widget is closing, i.e. closeEvent function
@@ -124,7 +124,7 @@ So if you need to run only single instance of specific widget, add strings:
 These strings make it safe to run scripts within Kolba or outside of it.
 
 Completed example:
-```
+```python
 from qgis._core import *
 from qgis.utils import iface
 from qgis.PyQt.QtCore import Qt
@@ -216,7 +216,7 @@ Description contain rows like:
 
 
 Check an example:
-```
+```python
 """
 description: My test tool
 version: 1.0

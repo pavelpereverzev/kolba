@@ -64,8 +64,8 @@ class TestWidget(QMainWindow):
         super().__init__(parent=iface.mainWindow())
         self.setWindowTitle("Vector layers stats")
         self.resize(400, 300)
-        self.setWindowFlags(self.windowFlags() | Qt.WindowStaysOnTopHint)
-        self.setAttribute(Qt.WA_DeleteOnClose)
+        self.setWindowFlags(self.windowFlags() | Qt.WindowType.WindowStaysOnTopHint)
+        self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
 
         # container
         container = QWidget()
@@ -138,8 +138,8 @@ class TestWidget(QMainWindow):
         super().__init__(parent=iface.mainWindow())
         self.setWindowTitle("Vector layers stats")
         self.resize(400, 300)
-        self.setWindowFlags(self.windowFlags() | Qt.WindowStaysOnTopHint)
-        self.setAttribute(Qt.WA_DeleteOnClose)
+        self.setWindowFlags(self.windowFlags() | Qt.WindowType.WindowStaysOnTopHint)
+        self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
 
         # container
         container = QWidget()
@@ -239,8 +239,8 @@ class TestWidget(QMainWindow):
         super().__init__(parent=iface.mainWindow())
         self.setWindowTitle("Vector layers stats")
         self.resize(400, 300)
-        self.setWindowFlags(self.windowFlags() | Qt.WindowStaysOnTopHint)
-        self.setAttribute(Qt.WA_DeleteOnClose)
+        self.setWindowFlags(self.windowFlags() | Qt.WindowType.WindowStaysOnTopHint)
+        self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
 
         # container
         container = QWidget()

@@ -4,7 +4,7 @@
 # Kolba
 
 <p align="center">
-<img src="https://gisworks.ru/qgis_tools/img/kolba_window.png?new=true1" 
+<img src="https://gisworks.ru/qgis_tools/img/kolba_window.png?new=true16" 
        width="auto">
 </p>
 
@@ -29,9 +29,11 @@ This approach has been well-received by colleagues due to its simplicity and min
 The interface of Kolba is simple for understanding: on the top there is a control panel and path to folder with script files. 
 Path line contains buttons on the right side:
 * ![Table look](https://gisworks.ru/qgis_tools/img/line_dropdown.png) - dropdown list of saved paths
+* ![Table look](https://gisworks.ru/qgis_tools/img/line_favorites.png) - shows favorite scripts
 * ![Table look](https://gisworks.ru/qgis_tools/img/line_refresh.png) - updates script list by scanning current path 
 * ![Table look](https://gisworks.ru/qgis_tools/img/line_webscript.png) - loader of scripts from the internet
 * ![Table look](https://gisworks.ru/qgis_tools/img/line_folder_select.png) - folder selector
+
 
 
 Bookmarks - appeared in v1.5 and provide a quick switch between paths saved in Kolba settings.
@@ -201,6 +203,12 @@ If URL is valid script can be saved with a button `Save`. After that script will
 
 **Script set** is a list of script URLs which is taken from another URL. Instead of searching each script manually user can select specific script and download it.
 
+>[!NOTE]
+> Since v1.6 there are two domains for script set: [gisworks.ru](https://gisworks.ru/) and [gisworks.org](https://gisworks.org/). 
+> Both sites provide the same set of scripts. But the first one is made for users from Russia who have problems with access to European/American hostings, while the second is for those who cannot access Russian hosting.
+> Domain can be manually changed in *Kolba settings*
+
+
 ## Descriptions
 
 The right part of Kolba window is used to show a description of selected script. 
@@ -294,18 +302,25 @@ Script file will not run right after download is completed so you will have a ti
 Kolba settings contains customizable settings of plugin:
 
 - paths manager: add, delete, edit folder paths, change their order
+- favorites checkbox: adds a new button which allows to get user's favorite tools
+- developers options: adds a drag'n'drop function to script list
 - bookmarks manager: set path as buttons in main widget for quick switch
 - WebScript root folder and path to script set
 - import/export kolba paths settings
-- interface settings: splitter orientation and theme 
+- interface settings: splitter orientation and theme
 
-![Table look](https://gisworks.ru/qgis_tools/img/kolba_settings.png?new=true)
+
+![Table look](https://gisworks.ru/qgis_tools/img/kolba_settings.png?new=true16)
 
 **Paths manager** allows to add, delete or edit paths in plugin. For example you keep stable versions of tools in specific folder while some work-in-process tools have to be kept in another folder. By adding another folder user can switch between folders in main widget's dropdown list. Re-ordering paths is also here: drag and drop path lines to change an order of them.
 
+**Favorites enabled** turns on and off an additional `Favorites` button which can show user tools marked as favorites. To make tool as favorite user should right-click a script and select `Add to favorites` option. After that if user clicks `Favorites` button a list of them appear. To remove tool from favorites section user should open favorites list and also right-click any script: there will be a context menu with a single option: `Remove from favorites`.
+
+**Developers options** allows user to drag'n'drop script to QGIS Python console editor or to any external text/code editor. May be useful for developers who don't want to spend time in finding script in file explorer. Also this option adds two options to scripts: `Open in Python console` and `Reveal in file explorer`. The first one is for loading script in QGIS Python console editor and the second is for opening folder containing script file with highlight of it.
+
 **Bookmarks manager** provides keeping certain path as buttons in main widget. In order not to open dropdown list from main widget's line, user can set folders as bookmark buttons and they appear in main widget between path line and content blocks. User can add a new path bookmark or use existing paths from settings list to make bookmarks from them.
 
-![Table look](https://gisworks.ru/qgis_tools/img/kolba_bookmarks.png)
+![Table look](https://gisworks.ru/qgis_tools/img/kolba_bookmarks.png?new=true16)
 
 **WebScript default location** is a URL to the root folder of scripts which can be downloaded from the internet. Default URL is `https://gisworks.ru/qgis_tools` which means that if user type `my_widget` in WebScript search tool, it will go to `https://gisworks.ru/qgis_tools/my_widget.py` path.
 
@@ -329,6 +344,13 @@ Kolba settings contains customizable settings of plugin:
 ## Changelog
 <details>
   <summary>see updates</summary>
+
+  ### v1.5
+  - bookmarks
+  - custom scripts set url setting for WebScripts
+  - import/export config
+  - webscript search case sensitivity
+
 
   ### v1.4.1 
   - code cleaning

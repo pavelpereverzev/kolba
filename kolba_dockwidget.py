@@ -23,6 +23,7 @@ with a help of Plugin Builder: http://g-sherman.github.io/Qgis-Plugin-Builder/
 ******************************************************************************/
 """
 import os
+import sys
 import subprocess
 import json
 from shutil import copyfile
@@ -31,6 +32,8 @@ from urllib.parse import urlparse
 import re
 from pathlib import Path
 import tempfile
+import console
+import traceback
 
 from qgis._gui import *
 from qgis._core import *
@@ -39,13 +42,15 @@ from qgis.utils import iface
 from qgis.PyQt import QtCore
 from qgis.PyQt.QtGui import *
 from qgis.PyQt.QtCore import *
+from qgis.PyQt.QtNetwork import QNetworkAccessManager, QNetworkRequest, QNetworkReply
 
 from qgis.PyQt.QtWidgets import (QWidget, QMainWindow, QDockWidget, QTreeView, QStyle, QGridLayout,
                                  QToolButton, QMenu, QListWidget, QListWidgetItem, QSpinBox, QTreeWidget, QTreeWidgetItem,
                                  QFileDialog, QLineEdit, QLabel, QPushButton, QCheckBox, QProgressBar, QTableWidget,
                                  QSlider, QFrame, QTextBrowser, QSplitter, QMessageBox, QComboBox, QTableWidgetItem,
                                  QHBoxLayout, QVBoxLayout, QGroupBox, QAbstractItemView, QScrollArea, QAction, QHeaderView,
-                                 QSizePolicy, QApplication, QGraphicsDropShadowEffect, QAbstractScrollArea)
+                                 QSizePolicy, QApplication, QGraphicsDropShadowEffect, QAbstractScrollArea, QTextEdit)
+
 
 folder_parent = QgsApplication.qgisSettingsDirPath()
 kolba_dir = os.path.join(folder_parent, 'python', 'plugins', 'kolba')  # advice by alex_deshev
@@ -61,12 +66,12 @@ def is_writable(dir_path):
         return False
 
 
-kolba_version = "1.5"
+kolba_version = "1.6"
 kolba_updates = [
-    'bookmarks',
-    'custom scripts set url setting',
-    'import/export config',
-    'webscript search case sensitivity fix'
+    'favorites section',
+    'more details about error on script launch'
+    'fix access to gisworks tools set',
+    'developers options: drag to console/editor and use the context menu to open or reveal the script'
 ]
 
 default_scripts_path = str(Path.home() / "Documents")
@@ -96,7 +101,11 @@ default_config = {
     "splitter_orientation": "Horizontal",
     "webscript_default_location_url": "https://gisworks.ru/qgis_tools",
     "webscript_custom_set": "https://gisworks.ru/kolba_set.json",
-    "bookmarks": {}
+    "bookmarks": {},
+    "favorites": {},
+    "favorites_enabled": False,
+    "favorites_mode": False,
+    "dev_options": False
 }
 
 global_stylesheet = {}
@@ -179,6 +188,109 @@ def is_url(url_string):
         return all([result.scheme, result.netloc])
     except ValueError:
         return False
+
+def is_console_visible():
+    console_widget = iface.mainWindow().findChild(object, "PythonConsole")
+    if console_widget:
+        return console_widget.isVisible()
+    return False
+
+def open_in_console(file_path):
+    if is_console_visible():
+        pass
+    else:
+        iface.actionShowPythonDialog().trigger()
+
+    import console 
+    pc = console.console._console.console
+    pc_editor = pc.widgetEditor
+    tab_name = QFileInfo(file_path).fileName()
+
+    if not pc_editor.isVisible():
+        pc.toggleEditor(True)
+
+    for i in range(pc.tabEditorWidget.count()):
+        w = pc.tabEditorWidget.widget(i)
+        tab_path = getattr(w, 'path', None) or (w.file_path() if hasattr(w, 'file_path') else None)
+        if tab_path and os.path.realpath(tab_path) == os.path.realpath(file_path):
+            pc.tabEditorWidget.setCurrentWidget(w)
+            return
+    pc.tabEditorWidget.newTabEditor(tab_name, file_path)
+    pc.updateTabListScript(file_path, action="append")
+
+def reveal_file_in_explorer(file_path):
+    # Opens the OS file browser and highlights the specified file.
+    current_os = sys.platform
+
+    if current_os == "win32":
+        subprocess.run(['explorer', '/select,', file_path])
+    elif current_os == "darwin":  # macOS
+        subprocess.run(['open', '-R', file_path])
+    elif current_os.startswith("linux"):
+        parent_dir = os.path.dirname(file_path)
+        subprocess.run(['xdg-open', parent_dir])
+
+class WarningWidget(QMainWindow):
+    def __init__(self, text_content=""):
+        super().__init__()
+        self.text_content = text_content
+        self.init_ui()
+
+    def init_ui(self):
+        self.setWindowModality(Qt.WindowModality.ApplicationModal)
+        self.setWindowFlags(
+            self.windowFlags() | QtCore.Qt.WindowType.WindowStaysOnTopHint |
+            Qt.WindowType.WindowCloseButtonHint | Qt.WindowType.WindowMinimizeButtonHint)
+        self.setWindowFlags(self.windowFlags() & QtCore.Qt.WindowType.CustomizeWindowHint)
+        self.setWindowFlags(self.windowFlags() & ~QtCore.Qt.WindowType.WindowMinMaxButtonsHint)
+        self.setWindowTitle('Warning')
+
+        scr_params = get_current_screen_params()
+        c_x, c_y = scr_params['center_x'], scr_params['center_y']
+        self.setGeometry(int(c_x - 300 / 2), int(c_y - 100), 300, 100)
+
+        self.widget = QWidget()
+        self.setCentralWidget(self.widget)
+        
+        main_layout = QVBoxLayout(self.widget)
+
+        self.text_box = QTextEdit()
+        self.text_box.setHtml(self.text_content)
+        self.text_box.setReadOnly(True)
+        
+
+        button_layout = QHBoxLayout()
+
+        self.lbl_warning = QLabel("Error in script:")
+        self.btn_copy = QPushButton("Copy")
+        self.btn_ok = QPushButton("Ok")
+        self.btn_ok.clicked.connect(self.close)
+        
+        button_layout.addWidget(self.btn_copy)
+        button_layout.addWidget(self.btn_ok)
+        
+        main_layout.addWidget(self.lbl_warning)
+        main_layout.addWidget(self.text_box)
+        
+        main_layout.addLayout(button_layout)
+        self.setLayout(main_layout)
+        
+        self.btn_copy.clicked.connect(self.copy_to_clipboard)
+        
+        self.show()
+
+    def copy_to_clipboard(self):
+        clipboard = QApplication.clipboard()
+        clipboard.setText(self.text_box.toPlainText())
+        
+        self.btn_copy.setText("Copied")
+        self.btn_copy.setEnabled(False)
+
+        QTimer.singleShot(1500, self.reset_copy_button)
+
+    def reset_copy_button(self):
+        self.btn_copy.setText("Copy")
+        self.btn_copy.setEnabled(True)
 
 
 class BookmarkEditor(QWidget):
@@ -519,7 +631,9 @@ class KolbaSettings(QMainWindow):
         self.state_bookmarks = dict(self.mw.kolba_widget.bookmarks)
         
         self.init_state_opacity = self.mw.kolba_widget.theme_opacity
+        self.init_state_dev_options = self.mw.kolba_widget.dev_options
         self.init_state_tool_widget_ori = self.mw.kolba_widget.tw_orientation
+        self.init_state_favorites = self.mw.kolba_widget.favorites_enabled
         self.ws_path = self.mw.kolba_widget.webscript_default_location_url
         self.ks_path = self.mw.kolba_widget.webscript_custom_set
         
@@ -605,7 +719,12 @@ class KolbaSettings(QMainWindow):
             bm_path = bm_path_data[0]
             bm_enabled = bm_path_data[1]
             self.add_bookmark_row(bm_name, bm_path, bm_enabled)
-            
+        
+        self.ch_favorites_enabled = QCheckBox("Favorites enabled")
+        self.ch_favorites_enabled.setChecked(self.mw.kolba_widget.favorites_enabled)
+
+        self.ch_dev_ch = QCheckBox("Developers options (drag to console/editor and use the context menu to open or reveal the script)")
+        self.ch_dev_ch.setChecked(self.mw.kolba_widget.dev_options)
 
         # webscript default url
         self.webscript_default_location_lbl = QLabel("WebScript default location")
@@ -722,10 +841,13 @@ class KolbaSettings(QMainWindow):
         layout_path.addLayout(h_layout)
         
         layout_path.addWidget(self.lw)
+        layout_path.addWidget(self.ch_favorites_enabled)
+        layout_path.addWidget(self.ch_dev_ch)
         layout_path.addLayout(h_layout_bookmarks)
+        
         layout_path.addWidget(self.lw_bookmarks)
+        
         layout_path.addLayout(self.layout_ksws)
-        # layout_path.addLayout(self.layout_ks)
         layout_path.addWidget(self.btn_export_config)
         layout_path.addWidget(self.btn_import_config)
 
@@ -761,8 +883,16 @@ class KolbaSettings(QMainWindow):
         self.tools_orientation.currentIndexChanged.connect(self.set_tw_orientation)
         self.btn_export_config.clicked.connect(self.export_config)
         self.btn_import_config.clicked.connect(self.import_config)
+        self.ch_favorites_enabled.stateChanged.connect(self.change_favorites_state)
 
         self.show()
+    
+    def change_favorites_state(self):
+        if self.ch_favorites_enabled.isChecked():
+            self.mw.kolba_widget.path_line.cb_favorites.show()
+        else:
+            self.mw.kolba_widget.path_line.cb_favorites.setChecked(False)
+            self.mw.kolba_widget.path_line.cb_favorites.hide()
     
     def export_config(self):
         check = self.check_state()
@@ -959,7 +1089,6 @@ class KolbaSettings(QMainWindow):
         else:
             self.mw.kolba_widget.widget_tabs.hide()
 
-        
     def bookmarks_enabled_check(self):
         if self.check_bookmarks.isChecked():
             self.mw.kolba_widget.widget_tabs.show()
@@ -1137,7 +1266,6 @@ class KolbaSettings(QMainWindow):
         self.state_paths = []
         for item in range(self.lw.count()):
             txt_item = self.lw.item(item).text()
-            # print(os.path.abspath(txt_item))
             self.state_paths.append(os.path.abspath(txt_item))
 
     def save_settings(self, silent=False):
@@ -1189,6 +1317,13 @@ class KolbaSettings(QMainWindow):
         self.mw.kolba_widget.webscript_default_location_url = self.webscript_default_location.text()
         self.mw.kolba_widget.webscript_custom_set = self.webscript_kolba_set_location.text()
         self.mw.kolba_widget.bookmarks = self.state_bookmarks
+        self.mw.kolba_widget.favorites_enabled = self.ch_favorites_enabled.isChecked()
+        self.mw.kolba_widget.dev_options = self.ch_dev_ch.isChecked()
+        if not self.ch_favorites_enabled.isChecked():
+            if self.mw.kolba_widget.wpath:
+                self.mw.kolba_widget.get_actions(self.mw.kolba_widget.model)
+        
+        self.mw.kolba_widget.dataView.setDragEnabled(self.ch_dev_ch.isChecked())
 
         # wtie config without confirm
         self.mw.write_new_cfg()
@@ -1240,6 +1375,8 @@ class KolbaSettings(QMainWindow):
         self.webscript_default_location.setText(self.ws_path)
         self.webscript_kolba_set_location.setText(self.ks_path)
         self.mw.kolba_widget.bookmarks = dict(self.init_state_bookmarks)
+        self.mw.kolba_widget.favorites_enabled = self.init_state_favorites
+        self.mw.kolba_widget.dev_options = self.init_state_dev_options
 
         self.check_theme_path()
         self.mw.kolba_widget.add_bookmarks()
@@ -1289,6 +1426,12 @@ class KolbaSettings(QMainWindow):
             need_check = True
         
         if self.webscript_kolba_set_location.text() != self.ks_path:
+            need_check = True
+        
+        if self.ch_favorites_enabled.isChecked()!= self.init_state_favorites:
+            need_check = True
+        
+        if self.ch_dev_ch.isChecked()!= self.init_state_dev_options:
             need_check = True
         
         return need_check
@@ -1512,6 +1655,14 @@ class ScriptPath(QLineEdit):
         self.cb_refresh.setToolTip('Update tools list')
         self.cb_refresh.setStyleSheet(global_stylesheet['path_edit_button'])
 
+        self.cb_favorites = QToolButton(self)
+        self.cb_favorites.setCheckable(True)
+        self.cb_favorites.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.cb_favorites.setIcon(QIcon(":images/themes/default/mIconFavorites.svg"))
+        self.cb_favorites.setToolTip('Favorites')
+        self.cb_favorites.setStyleSheet(global_stylesheet['path_edit_button'])
+        self.cb_favorites.setStyleSheet(self.cb_favorites.styleSheet() + " QToolButton:checked { background-color: #dcdcdc; }")
+
         self.cb_web_script = QToolButton(self)
         self.cb_web_script.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_ArrowDown))
         self.cb_web_script.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -1527,12 +1678,18 @@ class ScriptPath(QLineEdit):
         layout = QHBoxLayout(self)
         layout.addStretch()
         layout.addWidget(self.cb_open, 0, Qt.AlignmentFlag.AlignRight)
+        layout.addWidget(self.cb_favorites, 0, Qt.AlignmentFlag.AlignRight)
         layout.addWidget(self.cb_refresh, 0, Qt.AlignmentFlag.AlignRight)
         layout.addWidget(self.cb_web_script, 0, Qt.AlignmentFlag.AlignRight)
         layout.addWidget(self.cb_folder, 0, Qt.AlignmentFlag.AlignRight)
 
         layout.setSpacing(0)
         layout.setMargin(1)
+
+        if parent.favorites_enabled:
+            self.cb_favorites.show()
+        else:
+            self.cb_favorites.hide()
     
     def open_in_explorer(self, current_path):
         path_to_open = current_path
@@ -1606,19 +1763,106 @@ class ThemeWidget(QWidget):
         self.resize(self.parent().size())
 
 
+class KolbaMimeData(QMimeData):
+    def __init__(self, path):
+        super().__init__()
+        self._url = QUrl.fromLocalFile(path)
+        self.setData("application/x-kolba-source", b"script_tree")
+        self.setData("text/uri-list", QUrl.toPercentEncoding(self._url.toString()) + b"\r\n")
+
+
+class MyDropHandler(QgsCustomDropHandler):
+    """Local drop handler for the QGIS application that handles custom drag-and-drop events."""
+
+    def __init__(self, widget, parent=None):
+        self.widget = widget
+        super().__init__()
+
+    def canHandleMimeData(self, data):
+        if data.hasFormat("application/x-kolba-source"):
+            return True
+        return False
+  
+    def handleMimeData(self, data, *args):
+        return None  
+
+
 class HoverButtonTreeView(QTreeView):
+    """Custom QTreeView that allows dragging items and detects if the drag is over the console."""
     def __init__(self, parent):
         super().__init__()
         self.p = parent
-        self.setMouseTracking(True)
-        self.hovered_index = None
+        # self.setDragEnabled(True)
 
-    def leaveEvent(self, event):
-        if self.hovered_index:
-            self.setIndexWidget(self.hovered_index, None)
-            self.hovered_index = None
+    def startDrag(self, supportedActions):
+        index = self.currentIndex()
+        if not index.isValid():
+            return
 
-        super().leaveEvent(event)
+        script = str(index.data(Qt.ItemDataRole.DisplayRole))
+        script_path = os.path.join(self.p.wpath, "{}.py".format(script))
+
+        if not os.path.exists(script_path):
+            return
+
+        drag = QDrag(self)
+    
+        mime = KolbaMimeData(script_path)
+        url = QUrl.fromLocalFile(script_path)
+        mime.setUrls([url])
+        mime.setText(script_path)
+
+        pixmap = QPixmap(200, 20) 
+        pixmap.fill(Qt.GlobalColor.lightGray)
+        painter = QPainter(pixmap)
+        painter.drawText(5, 15, script)
+        painter.end()
+
+        self._drag_over_console = False
+        timer = QTimer(self)
+        timer.timeout.connect(lambda: self._check_console_hover())
+        timer.start(50)
+        
+        drag.setPixmap(pixmap)
+        drag.setMimeData(mime)
+        result=drag.exec(Qt.DropAction.CopyAction)
+
+        timer.stop()
+
+        if self._drag_over_console and result != Qt.DropAction.IgnoreAction:
+            self.open_in_console(script_path)
+        
+
+    def _check_console_hover(self):
+        widget = QApplication.widgetAt(QCursor.pos())
+        self._drag_over_console = False
+        
+        while widget:
+            if widget.objectName() == 'PythonConsole':
+                self._drag_over_console = True
+                return
+            if console.console._console and console.console._console.isAncestorOf(widget):
+                self._drag_over_console = True
+                return
+            widget = widget.parentWidget()
+
+    def open_in_console(self, file_path):
+        pc = console.console._console.console
+        pc_editor = pc.widgetEditor
+        tab_name = QFileInfo(file_path).fileName()
+
+        if not pc_editor.isVisible():
+            pc.toggleEditor(True)
+
+        for i in range(pc.tabEditorWidget.count()):
+            w = pc.tabEditorWidget.widget(i)
+            tab_path = getattr(w, 'path', None) or (w.file_path() if hasattr(w, 'file_path') else None)
+            if tab_path and os.path.realpath(tab_path) == os.path.realpath(file_path):
+                pc.tabEditorWidget.setCurrentWidget(w)
+                return
+        pc.tabEditorWidget.newTabEditor(tab_name, file_path)
+        pc.updateTabListScript(file_path, action="append")
+
 
 
 class CustomListWidget(QListWidget):
@@ -1710,7 +1954,6 @@ class WebScript(QMainWindow):
         
         self.scripts_data_layout.addWidget(self.gb_custom)
         self.scripts_data_layout.addWidget(self.gb_global_set)
-        
 
         self.data_layout.addLayout(self.scripts_data_layout)
         self.data_layout.addWidget(self.gb_desc)
@@ -1754,7 +1997,7 @@ class WebScript(QMainWindow):
         self.pbar.setRange(0, 0)
         self.pbar.setDisabled(False)
 
-        self.worker_script = WebScriptCheck(url)
+        self.worker_script = WebScriptCheck(url, url_set=self.main_tool.webscript_custom_set)
         self.worker_script.data_loaded.connect(self.on_data_loaded)
         self.worker_script.start()
 
@@ -1766,7 +2009,7 @@ class WebScript(QMainWindow):
         if self.worker_script:
             self.worker_script.deleteLater()
 
-        self.worker_script = WebScriptCheck(self.main_tool.webscript_custom_set)
+        self.worker_script = WebScriptCheck(self.main_tool.webscript_custom_set, url_set=self.main_tool.webscript_custom_set)
         self.worker_script.data_loaded.connect(self.on_ks_data_loaded)
         self.worker_script.start()
 
@@ -1796,13 +2039,16 @@ class WebScript(QMainWindow):
     def closeEvent(self, event):
         if self.worker_script:
             self.worker_script.stop()
-            self.worker_script.quit()
-            self.worker_script.wait(2000)
+            # self.worker_script.quit()
+            # self.worker_script.wait(2000)
         self.worker_script = None
         self.main_tool.web_script_get = None
 
     def save_script(self):
         file_path = os.path.join(self.main_tool.wpath, self.tool_name).lower()
+        postfix = ''
+        if self.main_tool.favorites_mode:
+            postfix = '\nas\n{}'.format(os.path.abspath(file_path))
         if self.tool_content:
             if os.path.isfile(file_path):
                 answer = self.warning_question(self.tool_name)
@@ -1810,7 +2056,7 @@ class WebScript(QMainWindow):
                     with open(file_path, "w", newline='') as f:
                         f.write(self.tool_content)
                     self.main_tool.get_actions(self.main_tool.model)
-                    self.warning_message("Script {} was saved successfully".format(self.tool_name))
+                    self.warning_message("Script {} was re-saved successfully{}".format(self.tool_name, postfix))
                 else:
                     return
             else:
@@ -1818,7 +2064,7 @@ class WebScript(QMainWindow):
                 with open(file_path, "w", newline='') as f:
                     f.write(self.tool_content)
                 self.main_tool.get_actions(self.main_tool.model)
-                self.warning_message("Script {} was saved successfully".format(self.tool_name))
+                self.warning_message("Script {} was saved successfully{}".format(self.tool_name, postfix))
 
     def upd_descriptions_metadata(self, desc_file, new_item):
         if not os.path.isfile(desc_file):
@@ -1868,7 +2114,7 @@ class WebScript(QMainWindow):
             self.tool_name = last_item_py
             url = '{}/{}'.format(url.rsplit('/', maxsplit=1)[0], self.tool_name)
 
-        self.worker_script = WebScriptCheck(url)
+        self.worker_script = WebScriptCheck(url, url_set=self.main_tool.webscript_custom_set)
         self.worker_script.data_loaded.connect(self.on_data_loaded)
         self.worker_script.start()
         return
@@ -1905,6 +2151,7 @@ class KolbaDockWidget(QDockWidget):
         self.setWindowFlags(Qt.WindowType.Tool)
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         self.setWindowTitle("Kolba")
+        
 
         # config 
         global global_stylesheet
@@ -1996,6 +2243,8 @@ class KolbaDockWidget(QDockWidget):
         # set widget appearance
         self.setWidget(KolbaWidget(self))
         self.kolba_widget = self.widget()
+        self.dropHandler = MyDropHandler(self.kolba_widget)
+        iface.registerCustomDropHandler(self.dropHandler)
 
         if self.kolba_widget.theme:
             root, extension = os.path.splitext(self.kolba_widget.theme)
@@ -2003,9 +2252,15 @@ class KolbaDockWidget(QDockWidget):
             self.overlay = ThemeWidget(self, overlay_image_path=local_theme_file,
                                        opacity=round(1.0 - round(self.kolba_widget.theme_opacity / 100, 2), 2))
             self.overlay.show()
-
+        
         if self.overlay:
             self.overlay.lower()
+
+    def close_btn_action(self):
+        self.close()
+        iface.unregisterCustomDropHandler(self.dropHandler)
+        iface.removeDockWidget(self)
+    
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -2034,10 +2289,7 @@ class KolbaDockWidget(QDockWidget):
             self.kolba_widget.path_line.show()
             self.path_enabled = True
 
-    def close_btn_action(self):
-        self.close()
-        iface.removeDockWidget(self)
-
+    
     def tl_change(self, state):
         if state:
             self.isFloating = True
@@ -2063,7 +2315,11 @@ class KolbaDockWidget(QDockWidget):
             'splitter_orientation': self.kolba_widget.tw_orientation,
             'webscript_default_location_url': self.kolba_widget.webscript_default_location_url,
             'webscript_custom_set': self.kolba_widget.webscript_custom_set,
-            'bookmarks': self.kolba_widget.bookmarks
+            'bookmarks': self.kolba_widget.bookmarks,
+            'favorites': self.kolba_widget.favorites,
+            'favorites_enabled': self.kolba_widget.favorites_enabled,
+            'favorites_mode': self.kolba_widget.favorites_mode,
+            'dev_options': self.kolba_widget.dev_options
         }
 
         with open(cfg_file, "w", encoding='utf-8') as d:
@@ -2118,14 +2374,20 @@ class KolbaWidget(QWidget):
         self.theme = self.all_cfg.get('theme', False)
         self.theme_opacity = self.all_cfg.get('theme_opacity', 0.0)
         self.tw_orientation = self.all_cfg.get('splitter_orientation', "Horizontal")
+        self.favorites = self.all_cfg.get('favorites', {})
+        self.favorites_enabled = self.all_cfg.get('favorites_enabled', False)
+        self.favorites_mode = self.all_cfg.get('favorites_mode', False)
         self.webscript_default_location_url = self.all_cfg.get('webscript_default_location_url', "https://gisworks.ru/qgis_tools")
         self.webscript_custom_set = self.all_cfg.get('webscript_custom_set', "https://gisworks.ru/kolba_set.json")
         self.bookmarks = self.all_cfg.get('bookmarks', {})
+        self.dev_options = self.all_cfg.get('dev_options', False)
         self.current_version = None
         self.webscript_content = None
         self.webscript_metadata = None
         self.web_script_get = None
         self.selected_bookmark = None
+        self.worker_version_check = None
+
 
         if self.theme:
             global_stylesheet = kolba_theme
@@ -2185,7 +2447,14 @@ class KolbaWidget(QWidget):
 
         # 2 - scripts list viewer
         self.dataView = HoverButtonTreeView(self)
+        
+        self.dataView.setAcceptDrops(False)
+        self.dataView.setDropIndicatorShown(False)
+        self.dataView.setDragDropMode(QAbstractItemView.DragDropMode.DragOnly)
+
         self.dataView.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        # self.dataView.setDragDropMode(QAbstractItemView.DragDropMode.DragDrop)
+
         self.dataView.setRootIsDecorated(False)
         self.dataView.doubleClicked.connect(self.run_action)
         self.dataView.setStyleSheet(global_stylesheet['data_view'])
@@ -2261,6 +2530,7 @@ class KolbaWidget(QWidget):
 
         # actions
         self.path_line.cb_refresh.clicked.connect(lambda: self.get_actions(self.model))
+        self.path_line.cb_favorites.clicked.connect(self.set_favorites_path)
         self.btn_run.clicked.connect(self.run_action)
         self.path_line.cb_folder.clicked.connect(self.load_folder)
         self.path_line.cb_web_script.clicked.connect(self.get_web_script)
@@ -2272,8 +2542,14 @@ class KolbaWidget(QWidget):
 
         # autorun functions
         self.add_recent_paths()
+        
+        if self.favorites_enabled:
+            if self.favorites_mode:
+                self.path_line.cb_favorites.setChecked(True)
+                self.set_favorites_path()
         self.get_actions(self.model)
         self.dataView.installEventFilter(self)
+        self.dataView.setDragEnabled(self.dev_options)
     
     def showEvent(self, event):
         
@@ -2287,6 +2563,98 @@ class KolbaWidget(QWidget):
             QTimer.singleShot(0, lambda: self.scroll_bookmarks.ensureWidgetVisible(self.selected_bookmark, 50, 0))
             QtCore.QCoreApplication.processEvents()
             # selected_bookmark.parent().s_area.ensureWidgetVisible(selected_bookmark)
+    
+    def set_favorites_path(self):
+        if self.path_line.cb_favorites.isChecked():
+            self.favorites_mode = True
+            self.path_line.setText('Favorites')
+            # self.wpath = 'Favorites'
+            self.get_actions(self.model)
+        else:
+            self.favorites_mode = False
+            if self.wpath:
+                if os.path.isdir(self.wpath):
+                    self.path_line.setText(self.wpath)
+                    # self.wpath = self.recent_paths[0]
+                    self.get_actions(self.model)
+            else:
+                if self.recent_paths:
+                    for rpath in self.recent_paths:
+                        if os.path.isdir(rpath):
+                            self.path_line.setText(self.recent_paths[0])
+                            # self.wpath = self.recent_paths[0]
+                            self.get_actions(self.model)
+                            break
+
+
+    def eventFilter(self, source, event):
+        if (event.type() == QEvent.Type.ContextMenu and source is self.dataView):
+            index = self.dataView.indexAt(event.pos())
+            # item = self.dataView.model().itemFromIndex(index)
+            if not self.dataView.model().itemFromIndex(index):
+                return False
+            name = self.dataView.model().itemFromIndex(index).text()
+            # # pack = self.dataView.item(item.row(), 1).text()
+            current_path = self.path_line.text()
+            script_name = name
+            menu = QMenu()
+            action_add_to_fav = QAction("Add to favorites")
+            action_remove_from_fav = QAction("Remove from favorites")
+            # 
+            action_open_in_console = QAction("Open in Python console")
+            action_reveal_in_explorer = QAction("Reveal in file explorer")
+
+            if self.favorites_mode:
+                menu.addAction(action_remove_from_fav)
+            else:
+                menu.addAction(action_add_to_fav)
+
+            if self.dev_options:
+                menu.addAction(action_open_in_console)
+                menu.addAction(action_reveal_in_explorer)
+
+            menu_click = menu.exec(event.globalPos())
+
+            if menu_click == action_add_to_fav:
+                if script_name in self.favorites:
+                    self.warning_message("Script is already in favorites")
+                    return False
+                if not self.favorites and not self.favorites_enabled:
+                    self.warning_message("Favorites are disabled in settings.\nTo see them, set 'Favorites Enabled' checkbox in settings.")
+                self.favorites[script_name] = {
+                    'path':  os.path.abspath(os.path.join(current_path, "{}.py".format(script_name))),
+                }
+                self.main_win.write_new_cfg()
+
+            elif menu_click == action_remove_from_fav:
+                # menu.addAction(action_remove_from_fav)
+                # menu_click = menu.exec(event.globalPos())
+                if script_name in self.favorites:
+                    del self.favorites[script_name]
+                    self.main_win.write_new_cfg()
+                    self.get_actions(self.model)
+
+            elif menu_click == action_open_in_console:
+                script_path = os.path.abspath(os.path.join(current_path, "{}.py".format(script_name)))
+                if self.favorites_mode:
+                    script_path = self.favorites.get(script_name, {}).get('path', None)
+                if script_path and not os.path.isfile(script_path):
+                    self.warning_message("Script file is not found")
+                    return False
+                open_in_console(script_path)
+
+            elif menu_click == action_reveal_in_explorer:
+                script_path = os.path.abspath(os.path.join(current_path, "{}.py".format(script_name)))
+                if self.favorites_mode:
+                    script_path = self.favorites.get(script_name, {}).get('path', None)
+                if script_path and not os.path.isfile(script_path):
+                    self.warning_message("Script file is not found")
+                    return False
+                reveal_file_in_explorer(script_path)
+
+                
+   
+        return False
         
     def add_bookmarks(self):
         bm_list = []
@@ -2308,7 +2676,7 @@ class KolbaWidget(QWidget):
                 font_metrics = btn.fontMetrics()
                 calculated_height = font_metrics.height() + 10 
                 btn.setMaximumHeight(calculated_height) 
-                if os.path.abspath(bookmark_path) == os.path.abspath(self.wpath):
+                if os.path.abspath(bookmark_path) == os.path.abspath(self.wpath) and not self.favorites_mode:
                     self.selected_bookmark = btn
                     btn.setChecked(True)
                     btn.setCursor(Qt.CursorShape.ArrowCursor)
@@ -2347,6 +2715,9 @@ class KolbaWidget(QWidget):
                 btn.setCursor(Qt.CursorShape.PointingHandCursor)
     
     def load_bookmark(self, bookmark_path):
+        self.path_line.cb_favorites.setChecked(False)
+        self.favorites_mode = False
+        self.wpath = bookmark_path
         self.bookmarks_check(bookmark_path)
         if not os.path.isdir(bookmark_path):
             self.warning_message("bookmark path is wrong")
@@ -2400,7 +2771,6 @@ class KolbaWidget(QWidget):
         return dlg.exec()
 
     def get_web_script(self):
-        # print(self.wpath, os.path.isdir(self.wpath), is_writable(self.wpath))
         if not self.wpath or not os.path.isdir(self.wpath) or not is_writable(self.wpath):
             self.warning_message('Define script path first.\nThe current one is wrong/empty/protected from writing.')
             return
@@ -2417,6 +2787,9 @@ class KolbaWidget(QWidget):
             action.triggered.connect(lambda ch, act=action: self.set_path(act))
 
     def set_path(self, action):
+        if self.path_line.text() != 'Favorites':
+            self.path_line.cb_favorites.setChecked(False)
+            self.favorites_mode = False
         path = action.text()
         self.path_line.setText(os.path.realpath(path))
         self.get_actions(self.model)
@@ -2428,10 +2801,19 @@ class KolbaWidget(QWidget):
         self.menu.popup(global_pos)
 
     def get_description(self):
+        if self.worker_version_check:
+            self.worker_version_check.stop()
+            self.worker_version_check = None
+        #     self.worker_version_check.quit() 
+        #     self.worker_version_check.wait() 
+        #     self.worker_version_check = None
+
         self.upd_webscript_button.hide()
         selected_data = self.dataView.selectedIndexes()
         script_name = selected_data[0].data()
         script_path = os.path.join(self.wpath, "{}.py".format(script_name))
+        if self.path_line.text() == 'Favorites':
+            script_path = self.favorites.get(script_name, {}).get('path', '')
         if not os.path.isfile(script_path):
             self.warning_message("Script file path is wrong")
             return
@@ -2445,7 +2827,10 @@ class KolbaWidget(QWidget):
         self.current_version = None
         self.webscript_content = None
         if type(descr) is str:
-            self.description_area.setHtml('<b>Description</b>: {}'.format(self.descriptions.get(script_name, descr)))
+            if self.favorites_mode:
+                self.description_area.setHtml('<b>Path</b>: {}<br></br><b>Description</b>: {}'.format(script_path, self.descriptions.get(script_name, descr)))
+            else:
+                self.description_area.setHtml('<b>Description</b>: {}'.format(self.descriptions.get(script_name, descr)))
         elif type(descr) is dict:
             description_text = descr.get('description', '-')
             version = descr.get('version', '-')
@@ -2455,7 +2840,10 @@ class KolbaWidget(QWidget):
             original_url = descr.get('original_url', '-')
 
             self.current_version = version
-            description_element = '<b>Description</b>: {}'.format(description_text)
+            if self.favorites_mode:
+                description_element = '<b>Path</b>: {}<br></br><br></br><b>Description</b>: {}'.format(script_path, description_text)
+            else:
+                description_element = '<b>Description</b>: {}'.format(description_text)
             version_element = '<b>Version</b>: {}'.format(version)
             if reference != '-':
                 reference_element = '<b>Reference</b>: <a href="{0}" target="_blank">{0}</a>'.format(reference)
@@ -2477,7 +2865,7 @@ class KolbaWidget(QWidget):
 
             if original_url != '-':
                 if is_url(original_url):
-                    self.worker_version_check = WebScriptCheck(original_url)
+                    self.worker_version_check = WebScriptCheck(original_url, url_set=self.webscript_custom_set)
                     self.worker_version_check.data_loaded.connect(self.on_data_loaded)
                     self.worker_version_check.start()
 
@@ -2515,7 +2903,30 @@ class KolbaWidget(QWidget):
     def get_actions(self, model):
         current_path = self.path_line.text()
         self.bookmarks_check(current_path)
-
+        if current_path != 'Favorites':
+            self.path_line.cb_favorites.setChecked(False)
+            self.favorites_mode = False
+        if self.favorites_enabled and self.favorites_mode:
+            # self.wpath = 'Favorites'
+            model.setRowCount(0)
+            self.dataView.setColumnHidden(1, True)
+            self.description_area.setHtml('<b></b>')
+            for fav_file, fav_path_data in self.favorites.items():
+                fav_path =  fav_path_data['path']
+                if os.path.isfile(fav_path):
+                    if '.' not in fav_path:
+                        continue
+                    action_name, action_type = os.path.splitext(fav_path)
+                    if action_type == '.py':
+                        if action_name not in iface.kolba_plugin:
+                            iface.kolba_plugin[fav_file] = None
+    
+                        item1 = QStandardItem(fav_file.lower())
+                        model.insertRow(0)
+                        model.setItem(0, 0, item1)
+    
+            return
+        self.path_line.cb_favorites.setChecked(False)
         # notify when path is wrong
         if not os.path.isdir(current_path) and current_path:
             self.warning_message('Path is invalid')
@@ -2580,48 +2991,147 @@ class KolbaWidget(QWidget):
 
     def run_script(self, script, mini_app=False):
         script_path = os.path.join(self.wpath, "{}.py".format(script))
+        if self.path_line.text() == 'Favorites':
+            script_path = self.favorites.get(script, {}).get('path', '')
         script_folder = self.wpath
 
         try:
             with open('{}'.format(script_path).encode('utf-8'), 'r') as f:
                 exec(f.read(), {'wrapper': self, 'project_folder': script_folder, 'script_name': script})  # nosec B102
         except Exception as e:
-            print(e)
-            self.warning_message("Error in script")
-            iface.kolba_plugin[script] = None
+            tb = e.__traceback__
+            summary = traceback.extract_tb(tb)
+            error_txt = ''
+            if summary:
+                last_trace = summary[-1]
+                line_no = last_trace.lineno
+                error_txt = f"<code><b>Line</b>: {line_no}<br><b>Error</b>: {e}</code>"
+            else:
+                error_txt = f"<code><b>Error</b>: {e}</code>"
 
+            self.errw = WarningWidget(text_content=error_txt)
+            iface.kolba_plugin[script] = None
+    
     def warning_message(self, err_text):
         msg = QMessageBox()
         msg.warning(self, "Warning", err_text)
 
 
-class WebScriptCheck(QThread):
+class WebScriptCheck(QObject):
     data_loaded = pyqtSignal(dict)
 
-    def __init__(self, script_url):
+    def __init__(self, script_url, url_set):
+        super().__init__()
+        self.script_url = script_url.lower()
+        self.url_set = url_set
+        # print(self.url_set)
+
+        self.manager = QNetworkAccessManager(self)
+        self.reply = None
+        self._is_running = False
+        self.urls_to_try =[self.script_url]
+        if 'gisworks.org' in self.url_set:
+            self.urls_to_try = [
+                self.script_url.replace('gisworks.ru', 'gisworks.org'),
+                self.script_url.replace('gisworks.org', 'gisworks.ru') 
+            ]
+        if 'gisworks.ru' in self.url_set:
+            self.urls_to_try = [
+                self.script_url.replace('gisworks.org', 'gisworks.ru'),
+                self.script_url.replace('gisworks.ru', 'gisworks.org') 
+            ]
+
+    def start(self):
+        self._is_running = True
+        self._send_next_request()
+
+    def _send_next_request(self):
+        if not self._is_running or not self.urls_to_try:
+            return
+        
+        current_url = self.urls_to_try.pop(0)
+        request = QNetworkRequest(QUrl(current_url))
+        request.setTransferTimeout(5000)
+        
+        self.reply = self.manager.get(request)
+        self.reply.ignoreSslErrors() 
+        self.reply.finished.connect(self._on_request_finished)
+
+    def _on_request_finished(self):
+        if not self._is_running or not self.reply:
+            return
+        if self.reply.error() == QNetworkReply.NetworkError.NoError:
+            response_text = self.reply.readAll().data().decode('utf-8', errors='ignore')
+            metadata = extract_metadata(response_text)
+            data = {
+                'script_content': response_text,
+                'script_metadata': metadata
+            }
+            
+            self.data_loaded.emit(data)
+            self.cleanup()
+        else:
+            if self.reply.error() != QNetworkReply.NetworkError.OperationCanceledError: 
+                print(f"Error occurred while fetching: {self.reply.errorString()}")
+                
+            self.reply.deleteLater()
+            self.reply = None
+            
+            if self.urls_to_try:
+                self._send_next_request()
+            else:
+                self.data_loaded.emit({'script_content': None, 'script_metadata': {}})
+                self.cleanup()
+
+    def stop(self):
+        self._is_running = False
+        if self.reply:
+            self.reply.abort()
+            self.reply.deleteLater()
+            self.reply = None
+        self.cleanup()
+
+    def cleanup(self):
+        self.urls_to_try.clear()
+
+
+class WebScriptCheck_old(QThread):
+    data_loaded = pyqtSignal(dict)
+
+    def __init__(self, script_url, is_set=False):
         super().__init__()
         self.script_url = script_url.lower()
         self._is_running = True
-        
+        self.is_set = is_set
+        self.session = None 
 
     def run(self):
         data = {'script_content': None, 'script_metadata': {}}
-        with requests.Session() as session:
-            try:
-                response = session.get(self.script_url, verify=False, timeout=5)
+        with requests.Session() as self.session:
+            # using alternative link in case of some local restrictions
+            script_list = [self.script_url, self.script_url.replace('gisworks.ru', 'gisworks.org')]
+            for s_url in script_list:
+                try:
+                    response = self.session.get(s_url, verify=False, timeout=5)
+                    if not self._is_running:
+                        return 
+                    if response.status_code == 200:
+                        metadata = extract_metadata(response.text)
+                        data['script_content'] = response.text
+                        data['script_metadata'] = metadata
+                        break
+                except Exception as e:
+                    print(f"Error occurred while fetching URL: {e}")
                 if not self._is_running:
                     return 
-                if response.status_code == 200:
-                    metadata = extract_metadata(response.text)
-                    data['script_content'] = response.text
-                    data['script_metadata'] = metadata
-            except Exception as e:
-                print(f"Error occurred while fetching URL: {e}")
+                
         if self._is_running:
             self.data_loaded.emit(data)
 
     def stop(self):
         self._is_running = False
+        if self.session:
+            self.session.close()
 
 # dockwidget = KolbaDockWidget(None)
 # dockwidget.setFloating(False)

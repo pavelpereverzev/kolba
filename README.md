@@ -303,7 +303,7 @@ Kolba settings contains customizable settings of plugin:
 
 - paths manager: add, delete, edit folder paths, change their order
 - favorites checkbox: adds a new button which allows to get user's favorite tools
-- developers options: adds a drag'n'drop function to script list
+- developers options: adds some features to script list
 - bookmarks manager: set path as buttons in main widget for quick switch
 - WebScript root folder and path to script set
 - import/export kolba paths settings
@@ -316,7 +316,7 @@ Kolba settings contains customizable settings of plugin:
 
 **Favorites enabled** turns on and off an additional `Favorites` button which can show user tools marked as favorites. To make tool as favorite user should right-click a script and select `Add to favorites` option. After that if user clicks `Favorites` button a list of them appear. To remove tool from favorites section user should open favorites list and also right-click any script: there will be a context menu with a single option: `Remove from favorites`.
 
-**Developers options** allows user to drag'n'drop script to QGIS Python console editor or to any external text/code editor. May be useful for developers who don't want to spend time in finding script in file explorer. Also this option adds two options to scripts: `Open in Python console` and `Reveal in file explorer`. The first one is for loading script in QGIS Python console editor and the second is for opening folder containing script file with highlight of it.
+**Developers options** allows user to drag'n'drop script to QGIS Python console editor or to any external text/code editor (like Visual Studio Code, PyCharm, Sublime). May be useful for developers who don't want to spend time in finding script in file explorer. Also this option adds two options to scripts: `Open in Python console` and `Reveal in file explorer`. The first one is for loading script in QGIS Python console editor and the second is for opening folder containing script file with highlight of it.
 
 **Bookmarks manager** provides keeping certain path as buttons in main widget. In order not to open dropdown list from main widget's line, user can set folders as bookmark buttons and they appear in main widget between path line and content blocks. User can add a new path bookmark or use existing paths from settings list to make bookmarks from them.
 
